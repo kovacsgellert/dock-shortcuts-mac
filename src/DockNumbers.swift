@@ -47,8 +47,10 @@ struct DockNumbers {
     let noAccessibility = CommandLine.arguments.contains("--no-accessibility")
     // Portable config wins: enforce the desired login-item state (e.g. fresh
     // machine with a copied config.yml) and apply the saved appearance.
+    // Never from a dev CLI build: SMAppService would register this
+    // throwaway binary (or unregister the real installed app) at login.
     AppConfig.shared.reload()
-    if AppConfig.shared.startAtLogin != LaunchAtLogin.isEnabled {
+    if isAppBundle, AppConfig.shared.startAtLogin != LaunchAtLogin.isEnabled {
       try? LaunchAtLogin.setEnabled(AppConfig.shared.startAtLogin)
     }
     AppAppearance.apply()
@@ -131,7 +133,8 @@ struct DockNumbers {
       }
       AppConfig.shared.reload()
       if AppConfig.shared != lastApplied {
-        if AppConfig.shared.startAtLogin != LaunchAtLogin.isEnabled {
+        // Dev CLI builds leave login items alone (see runDaemon).
+        if isAppBundle, AppConfig.shared.startAtLogin != LaunchAtLogin.isEnabled {
           try? LaunchAtLogin.setEnabled(AppConfig.shared.startAtLogin)
         }
         AppAppearance.apply()

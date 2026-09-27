@@ -9,7 +9,7 @@ Hold **Option** to overlay numbered glass badges on your macOS Dock icons, then 
 ## How it works
 
 1. Hold **Option** — frosted number badges appear beside each running app's Dock icon (100 ms delay, so quick `Option+letter` combos stay clean).
-2. Press **1–9**, **0** (0 = 10th app) — the matching app activates, or hides if it's already frontmost.
+2. Press **1–9**, **0** (0 = 10th app) — the matching app activates, or hides if it's already frontmost. If the app has multiple windows open, repeat presses cycle through its windows instead of hiding.
 3. Release **Option** — badges disappear.
 
 Badge placement follows the Dock automatically (left / right / bottom) based on icon geometry.

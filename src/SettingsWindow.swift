@@ -85,7 +85,7 @@ final class SettingsWindowController: NSWindowController {
       nameRow.addArrangedSubview(versionLabel)
     }
     titleStack.addArrangedSubview(nameRow)
-    let hint = NSTextField(wrappingLabelWithString: "Hold Option for numbers, press 1–9 or 0 to switch apps.")
+    let hint = NSTextField(wrappingLabelWithString: "Hold Option for numbers, press 1–9 or 0 to switch apps. Press again to cycle an app's windows.")
     hint.font = .systemFont(ofSize: 12)
     hint.textColor = .secondaryLabelColor
     // Bound the unwrapped intrinsic width (400 window − 40 insets − 56 icon − 12 gap),
@@ -274,6 +274,10 @@ final class SettingsWindowController: NSWindowController {
   private func refreshAll() {
     // Re-read config.yml: hand/script edits show up on next open.
     AppConfig.shared.reload()
+    // Dev builds can't own the login item (see loginToggled): show the
+    // switch disabled rather than a meaningless state.
+    loginSwitch.isEnabled = DockNumbers.isAppBundle
+    loginSwitch.toolTip = DockNumbers.isAppBundle ? nil : "Start-at-login is managed by the installed DockShortcuts.app, not dev builds."
     loginSwitch.state = LaunchAtLogin.isEnabled ? .on : .off
     menubarSwitch.state = ShowMenuBarIcon.isEnabled ? .on : .off
     alwaysSwitch.state = AppConfig.shared.badgesAlwaysVisible ? .on : .off
@@ -286,6 +290,14 @@ final class SettingsWindowController: NSWindowController {
   }
 
   @objc private func loginToggled(_ sender: NSSwitch) {
+    // Dev builds run as a bare binary: toggling here would register that
+    // throwaway binary (or unregister the installed app) at login.
+    guard DockNumbers.isAppBundle else {
+      sender.state = .off
+      loginErrorLabel.stringValue = "Start-at-login is managed by the installed DockShortcuts.app, not dev builds."
+      loginErrorLabel.isHidden = false
+      return
+    }
     loginErrorLabel.isHidden = true
     do {
       try LaunchAtLogin.setEnabled(sender.state == .on)
