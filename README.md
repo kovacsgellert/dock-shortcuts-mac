@@ -30,6 +30,15 @@ swift build
 
 ## Install a released version
 
+Via Homebrew:
+
+```sh
+brew tap kovacsgellert/tap
+brew install --cask dock-shortcuts
+```
+
+Or manually:
+
 1. Download `dock-shortcuts-<version>-macos-arm64.dmg` from the [Releases page](https://github.com/kovacsgellert/dock-shortcuts-mac/releases), open it, and drag **DockShortcuts** into **Applications**. (Prefer a guided install? Use `dock-shortcuts-<version>-macos-arm64.pkg` instead — it puts the app into `/Applications` automatically.)
 2. Neither is notarized, so on first launch right-click the app and choose **Open** (otherwise Gatekeeper refuses to start it).
 3. Grant Accessibility permission when prompted (`System Settings → Privacy & Security → Accessibility`).
