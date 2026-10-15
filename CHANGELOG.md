@@ -6,6 +6,13 @@
   or Shift (e.g. Option+Cmd+Ctrl+4) pass through to other apps, and badges
   hide while those modifiers are held
 
+## 1.1.0
+
+- Repeat-pressing an app's number cycles through its windows when it has
+  several open (instead of hiding it)
+- Dev builds no longer touch the start-at-login item; the toggle is
+  disabled there
+
 ## 1.0.0
 
 - Rename to DockShortcuts (`dock-shortcuts-mac`): new bundle id
