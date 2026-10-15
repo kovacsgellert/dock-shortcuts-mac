@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.0
+
+- No changes since 1.2.0-beta1
+
 ## 1.2.0-beta1
 
 - Option+number only triggers with Option alone: combos that add Cmd, Ctrl
