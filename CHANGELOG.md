@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.0-beta1
+
+- Option+number only triggers with Option alone: combos that add Cmd, Ctrl
+  or Shift (e.g. Option+Cmd+Ctrl+4) pass through to other apps, and badges
+  hide while those modifiers are held
+
 ## 1.0.0
 
 - Rename to DockShortcuts (`dock-shortcuts-mac`): new bundle id

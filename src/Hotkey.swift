@@ -2,6 +2,7 @@ import Cocoa
 import ApplicationServices
 
 /// Global Option-hold detection + number-key interception via CGEventTap.
+/// "Held" means Option alone; adding Cmd/Ctrl/Shift counts as a release.
 /// Requires Accessibility permission (already granted for the spike).
 final class HotkeyManager {
   var onOptionDown: (() -> Void)?
@@ -19,6 +20,13 @@ final class HotkeyManager {
   private static let numberKeycodes: [Int64: Int] = [
     18: 1, 19: 2, 20: 3, 21: 4, 23: 5, 22: 6, 26: 7, 28: 8, 25: 9, 29: 0
   ]
+
+  /// Option with no Cmd/Ctrl/Shift, so combos like Option+Cmd+Ctrl+4 reach
+  /// other apps. Fn is ignored: some keyboards set it spuriously.
+  private static func isOptionOnly(_ flags: CGEventFlags) -> Bool {
+    flags.contains(.maskAlternate) &&
+      flags.intersection([.maskCommand, .maskControl, .maskShift]).isEmpty
+  }
 
   func start() -> Bool {
     guard tap == nil else { return true }
@@ -56,7 +64,7 @@ final class HotkeyManager {
       if let t = tap { CGEvent.tapEnable(tap: t, enable: true) }
       return pass
     case .flagsChanged:
-      let down = event.flags.contains(.maskAlternate)
+      let down = Self.isOptionOnly(event.flags)
       if down != optionHeld {
         optionHeld = down
         DispatchQueue.main.async { [weak self] in
@@ -65,7 +73,7 @@ final class HotkeyManager {
       }
       return pass
     case .keyDown:
-      guard optionHeld else { return pass }
+      guard optionHeld, Self.isOptionOnly(event.flags) else { return pass }
       let code = event.getIntegerValueField(.keyboardEventKeycode)
       guard let number = Self.numberKeycodes[code] else { return pass }
       // Swallow auto-repeat; swallow the press so Option+2 doesn't type ™ etc.
