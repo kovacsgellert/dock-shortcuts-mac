@@ -46,7 +46,7 @@ Or manually:
 
 ### Updating
 
-Update with `brew upgrade --cask dock-shortcuts`, or by dragging the new version over the old one in Applications. Releases from 1.3.0 on are signed with the same certificate, so the Accessibility permission carries over. Coming from 1.2.0 or older, macOS treats the update as a new app once: in `System Settings → Privacy & Security → Accessibility`, remove the old **DockShortcuts** entry with **−**, then launch the app and grant permission again.
+Update with `brew upgrade --cask dock-shortcuts`, or by dragging the new version over the old one in Applications. Releases from 1.3.0-beta1 on are signed with the same certificate, so the Accessibility permission carries over. Coming from 1.2.0 or older, macOS treats the update as a new app once: in `System Settings → Privacy & Security → Accessibility`, remove the old **DockShortcuts** entry with **−**, then launch the app and grant permission again.
 
 ### Releasing
 

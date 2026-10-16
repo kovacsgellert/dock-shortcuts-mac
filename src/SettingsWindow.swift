@@ -151,6 +151,11 @@ final class SettingsWindowController: NSWindowController {
     accessButton.bezelStyle = .rounded
     stack.addArrangedSubview(section(title: "Accessibility", rows: [(nil, accessLabel), (nil, accessButton)]))
 
+    // Quit: the only way out when the menu bar icon is hidden.
+    let quitButton = NSButton(title: "Quit DockShortcuts", target: NSApp, action: #selector(NSApplication.terminate(_:)))
+    quitButton.bezelStyle = .rounded
+    stack.addArrangedSubview(quitButton)
+
     // About section, laid out like the others: leading-aligned under
     // its caption instead of centered.
     let footer = NSStackView()
