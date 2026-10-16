@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Releases are signed with a stable self-signed certificate, so macOS keeps
+  the Accessibility permission across updates. Updating to this release from
+  1.2.0 or older still needs one re-grant (see README → Updating)
+- README: first-launch steps for macOS 15+ (Open Anyway)
+
 ## 1.2.0
 
 - No changes since 1.2.0-beta1

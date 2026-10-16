@@ -40,11 +40,19 @@ brew install --cask dock-shortcuts
 Or manually:
 
 1. Download `dock-shortcuts-<version>-macos-arm64.dmg` from the [Releases page](https://github.com/kovacsgellert/dock-shortcuts-mac/releases), open it, and drag **DockShortcuts** into **Applications**. (Prefer a guided install? Use `dock-shortcuts-<version>-macos-arm64.pkg` instead — it puts the app into `/Applications` automatically.)
-2. Neither is notarized, so on first launch right-click the app and choose **Open** (otherwise Gatekeeper refuses to start it).
+2. Neither is notarized, so Gatekeeper blocks the first launch. On macOS 15 (Sequoia) and later, try to open the app once, then go to `System Settings → Privacy & Security`, scroll down and click **Open Anyway**. On macOS 14, right-click the app and choose **Open** instead.
 3. Grant Accessibility permission when prompted (`System Settings → Privacy & Security → Accessibility`).
 4. A settings window opens on first launch: toggle **Start automatically when you log in** if you want it always running. The window can be reopened anytime from the menu-bar icon.
 
+### Updating
+
+Update with `brew upgrade --cask dock-shortcuts`, or by dragging the new version over the old one in Applications. Releases from 1.3.0 on are signed with the same certificate, so the Accessibility permission carries over. Coming from 1.2.0 or older, macOS treats the update as a new app once: in `System Settings → Privacy & Security → Accessibility`, remove the old **DockShortcuts** entry with **−**, then launch the app and grant permission again.
+
+### Releasing
+
 Releases are built automatically: pushing a version tag like `0.1.0` triggers the `Release` workflow, which packages the `.app`, builds the DMG, and attaches it to the GitHub Release.
+
+Releases are signed with a self-signed certificate (no paid Apple Developer ID), stored in the `SIGNING_P12_BASE64` and `SIGNING_P12_PASSWORD` repository secrets. A stable signature is what lets macOS keep the Accessibility permission across updates; ad-hoc signatures change with every build. The workflow refuses to publish a release without it. The certificate is shared by all of the author's Mac apps (macOS keys permissions on bundle id + certificate, so apps stay separate); it was created once with `scripts/make-signing-cert.sh` into `~/.codesign/`. Keep its `.p12` and password backed up: a new certificate means every user has to grant Accessibility again. To sign a local build the same way, run `SIGNING_P12=<path> SIGNING_P12_PASSWORD=<password> ./scripts/package-app.sh`.
 
 ## Configuration file
 
