@@ -1,17 +1,17 @@
 import Cocoa
 import ApplicationServices
 
-/// Keeps windows out of the Dock copies' area, the way `visibleFrame`
+/// Keeps windows out of the Dock clones' area, the way `visibleFrame`
 /// keeps them out of the real Dock's.
 ///
 /// macOS has no API for a second reserved area (see README), so this
 /// watches every app's windows through Accessibility and, after a window is
 /// resized, shrinks it if its Dock-side edge ends up at (or within a tiling
-/// margin of) the screen edge while overlapping a copy. That covers the
+/// margin of) the screen edge while overlapping a clone. That covers the
 /// green-button zoom, double-click-title Fill, Sequoia tiling and window
 /// managers, which all size windows to `visibleFrame` (= the whole screen on
 /// displays without the real Dock). Plain moves are left alone, so windows
-/// can still be dragged over a copy, just as over the real Dock.
+/// can still be dragged over a clone, just as over the real Dock.
 final class WindowGuard {
   /// Reserved bands in Cocoa coordinates.
   private var reserved: [(edge: DockEdge, rect: CGRect)] = []
@@ -43,7 +43,7 @@ final class WindowGuard {
       return
     }
     for app in NSWorkspace.shared.runningApplications { watch(app) }
-    // A new or moved copy: fix windows already maximized underneath it.
+    // A new or moved clone: fix windows already maximized underneath it.
     if changed {
       for pid in observers.keys { clampAllWindows(pid: pid) }
     }
@@ -130,7 +130,7 @@ final class WindowGuard {
         guard gap > -2, gap <= edgeTolerance else { continue }
         target.size.width = strip.minX - max(gap, 0) - frame.minX
       }
-      // A window mostly under the copy is being parked there on purpose.
+      // A window mostly under the clone is being parked there on purpose.
       guard target.width >= 120, target.height >= 80, target != frame else { continue }
       if target.origin != frame.origin { AX.setPosition(window, target.origin) }
       AX.setSize(window, target.size)

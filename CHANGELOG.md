@@ -6,11 +6,15 @@
   `com.kovacsgellert.dock-utils`: macOS sees a new app, so grant
   Accessibility again (see README → Updating). Settings are copied from
   `~/.config/dock-shortcuts/` on first launch
-- Dock copies on other displays (Settings → Other Displays, off by
+- Dock clones on other displays (Settings → Dock Clones, off by
   default): the Dock's items, running indicators and badges on every
   display the real Dock isn't on, matching its position, icon size and
-  auto-hide. Zoomed and tiled windows stop at the copy's edge
-- Number badges also show on the Dock copies
+  auto-hide. Zoomed and tiled windows stop at the clone's edge
+- Number badges also show on the Dock clones
+- Always-visible badges on a side Dock sit at the icon's bottom corner
+  facing the screen center, as close to the Dock's edge as fits
+- Settings window split into tabs: General, Dock Shortcuts, Dock Clones
+  and About
 - Reacts to changes as they happen instead of polling: config.yml edits,
   Dock changes (apps launched, quit, added, removed; Dock settings) and
   the Accessibility permission being granted

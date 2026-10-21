@@ -1,9 +1,9 @@
 import Cocoa
 
-/// Geometry of one Dock copy on one screen, in Cocoa (bottom-left origin)
+/// Geometry of one Dock clone on one screen, in Cocoa (bottom-left origin)
 /// global coordinates. Proportions follow the system Dock: a bar `tile + 2·pad`
 /// thick, centered along its edge, flush with the screen edge.
-struct DockCopyLayout {
+struct DockCloneLayout {
   let edge: DockEdge
   let tile: CGFloat
   /// Panel frame while shown.

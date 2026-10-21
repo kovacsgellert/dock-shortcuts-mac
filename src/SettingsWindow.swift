@@ -1,8 +1,9 @@
 import Cocoa
 import ApplicationServices
 
-/// Settings window, macOS System Settings style: icon header, grouped boxes,
-/// centered About footer. Always used from the main thread.
+/// Settings window, macOS System Settings style: toolbar tabs (General,
+/// Dock Shortcuts, Dock Clones, About) with grouped boxes. The window
+/// resizes to each tab's content. Always used from the main thread.
 final class SettingsWindowController: NSWindowController {
   private var loginSwitch: NSSwitch!
   private var loginErrorLabel: NSTextField!
@@ -10,25 +11,31 @@ final class SettingsWindowController: NSWindowController {
   private var accessButton: NSButton!
   private var menubarSwitch: NSSwitch!
   private var alwaysSwitch: NSSwitch!
-  private var copiesSwitch: NSSwitch!
+  private var clonesSwitch: NSSwitch!
+  private var onDockDisplaySwitch: NSSwitch!
   private var keepClearSwitch: NSSwitch!
   private var themePopup: NSPopUpButton!
   private var delaySlider: NSSlider!
   private var delayLabel: NSTextField!
+  private let tabs = SettingsTabViewController()
+
+  /// Content width of every tab.
+  private static let width: CGFloat = 400
 
   init() {
     let window = NSWindow(
-      contentRect: NSRect(x: 0, y: 0, width: 400, height: 460),
+      contentRect: NSRect(x: 0, y: 0, width: Self.width, height: 300),
       styleMask: [.titled, .closable],
       backing: .buffered,
       defer: false
     )
-    window.title = "DockUtils"
-    window.center()
     window.isReleasedWhenClosed = false
+    window.toolbarStyle = .preference
     super.init(window: window)
     buildUI()
-    fitToContent()
+    window.contentViewController = tabs
+    tabs.fitWindow(animated: false)
+    window.center()
   }
 
   @available(*, unavailable)
@@ -39,80 +46,64 @@ final class SettingsWindowController: NSWindowController {
   // MARK: - Layout
 
   private func buildUI() {
-    guard let content = window?.contentView else { return }
-    let stack = NSStackView()
-    stack.identifier = NSUserInterfaceItemIdentifier("root")
-    stack.orientation = .vertical
-    stack.alignment = .leading
-    stack.spacing = 14
-    stack.edgeInsets = NSEdgeInsets(top: 18, left: 20, bottom: 18, right: 20)
-    stack.translatesAutoresizingMaskIntoConstraints = false
-    content.addSubview(stack)
-    NSLayoutConstraint.activate([
-      stack.topAnchor.constraint(equalTo: content.topAnchor),
-      stack.leadingAnchor.constraint(equalTo: content.leadingAnchor),
-      stack.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-      stack.bottomAnchor.constraint(lessThanOrEqualTo: content.bottomAnchor),
-    ])
+    tabs.tabStyle = .toolbar
+    tabs.addTabViewItem(tab("General", symbol: "gearshape", page: generalPage()))
+    tabs.addTabViewItem(tab("Dock Shortcuts", symbol: "keyboard", page: shortcutsPage()))
+    tabs.addTabViewItem(tab("Dock Clones", symbol: "rectangle.on.rectangle", page: clonesPage()))
+    tabs.addTabViewItem(tab("About", symbol: "info.circle", page: aboutPage()))
 
-    // Header: app icon + name + hint.
-    let header = NSStackView()
-    header.orientation = .horizontal
-    header.alignment = .centerY
-    header.spacing = 12
-    let iconView = NSImageView(image: NSApp.applicationIconImage)
-    iconView.imageScaling = .scaleProportionallyUpOrDown
-    iconView.translatesAutoresizingMaskIntoConstraints = false
-    NSLayoutConstraint.activate([
-      iconView.widthAnchor.constraint(equalToConstant: 56),
-      iconView.heightAnchor.constraint(equalToConstant: 56),
-    ])
-    header.addArrangedSubview(iconView)
-    let titleStack = NSStackView()
-    titleStack.orientation = .vertical
-    titleStack.alignment = .leading
-    titleStack.spacing = 2
-    let nameRow = NSStackView()
-    nameRow.orientation = .horizontal
-    nameRow.alignment = .lastBaseline
-    nameRow.spacing = 8
-    let title = NSTextField(labelWithString: "DockUtils")
-    title.font = .systemFont(ofSize: 16, weight: .semibold)
-    nameRow.addArrangedSubview(title)
-    if let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
-      let versionLabel = NSTextField(labelWithString: version)
-      versionLabel.font = .systemFont(ofSize: 12)
-      versionLabel.textColor = .secondaryLabelColor
-      nameRow.addArrangedSubview(versionLabel)
-    }
-    titleStack.addArrangedSubview(nameRow)
-    let hint = NSTextField(wrappingLabelWithString: "Hold Option for numbers, press 1–9 or 0 to switch apps. Press again to cycle an app's windows.")
-    hint.font = .systemFont(ofSize: 12)
-    hint.textColor = .secondaryLabelColor
-    // Bound the unwrapped intrinsic width (400 window − 40 insets − 56 icon − 12 gap),
-    // otherwise the stack overflows and AppKit breaks the leading constraint.
-    hint.preferredMaxLayoutWidth = 292
-    titleStack.addArrangedSubview(hint)
-    header.addArrangedSubview(titleStack)
-    stack.addArrangedSubview(header)
+    refreshAll()
+    NotificationCenter.default.addObserver(
+      self, selector: #selector(refreshAccessibility),
+      name: NSApplication.didBecomeActiveNotification, object: nil
+    )
+    // Live-update the permission row: the grant happens in System Settings.
+    NotificationCenter.default.addObserver(
+      self, selector: #selector(refreshAccessibility),
+      name: .accessibilityChanged, object: nil
+    )
+  }
 
-    // General group.
+  private func generalPage() -> [NSView] {
     loginSwitch = NSSwitch()
     loginSwitch.target = self
     loginSwitch.action = #selector(loginToggled(_:))
-    let menubarSwitchLocal = NSSwitch()
-    menubarSwitchLocal.target = self
-    menubarSwitchLocal.action = #selector(menubarToggled(_:))
-    menubarSwitch = menubarSwitchLocal
-    let alwaysSwitchLocal = NSSwitch()
-    alwaysSwitchLocal.target = self
-    alwaysSwitchLocal.action = #selector(alwaysToggled(_:))
-    alwaysSwitch = alwaysSwitchLocal
-    let themePopup = NSPopUpButton()
+    menubarSwitch = NSSwitch()
+    menubarSwitch.target = self
+    menubarSwitch.action = #selector(menubarToggled(_:))
+    themePopup = NSPopUpButton()
     themePopup.addItems(withTitles: AppAppearance.allCases.map(\.label))
     themePopup.target = self
     themePopup.action = #selector(appearanceChanged(_:))
-    self.themePopup = themePopup
+    let general = section(title: "General", rows: [
+      ("Start automatically when you log in", loginSwitch),
+      ("Show menu bar icon", menubarSwitch),
+      ("Appearance", themePopup),
+    ])
+
+    loginErrorLabel = NSTextField(wrappingLabelWithString: "")
+    loginErrorLabel.font = .systemFont(ofSize: 12)
+    loginErrorLabel.textColor = .systemRed
+    loginErrorLabel.preferredMaxLayoutWidth = Self.width - 40
+    loginErrorLabel.isHidden = true
+
+    accessLabel = NSTextField(wrappingLabelWithString: "")
+    accessLabel.font = .systemFont(ofSize: 13)
+    accessLabel.preferredMaxLayoutWidth = Self.width - 68
+    accessButton = NSButton(title: "Open System Settings…", target: self, action: #selector(openAccessibilitySettings(_:)))
+    accessButton.bezelStyle = .rounded
+    let access = section(title: "Accessibility", rows: [(nil, accessLabel), (nil, accessButton)])
+
+    // Quit: the only way out when the menu bar icon is hidden.
+    let quitButton = NSButton(title: "Quit DockUtils", target: NSApp, action: #selector(NSApplication.terminate(_:)))
+    quitButton.bezelStyle = .rounded
+    return [general, loginErrorLabel, access, quitButton]
+  }
+
+  private func shortcutsPage() -> [NSView] {
+    alwaysSwitch = NSSwitch()
+    alwaysSwitch.target = self
+    alwaysSwitch.action = #selector(alwaysToggled(_:))
 
     let delayRow = NSStackView()
     delayRow.orientation = .horizontal
@@ -130,89 +121,126 @@ final class SettingsWindowController: NSWindowController {
     delayLabel.translatesAutoresizingMaskIntoConstraints = false
     delayLabel.widthAnchor.constraint(equalToConstant: 52).isActive = true
     delayRow.addArrangedSubview(delayLabel)
-    stack.addArrangedSubview(section(title: "General", rows: [
-      ("Start automatically when you log in", loginSwitch),
-      ("Show menu bar icon", menubarSwitchLocal),
-      ("Badges always visible", alwaysSwitchLocal),
-      ("Badge delay", delayRow),
-      ("Appearance", themePopup),
-    ]))
-    // Dock copies group.
-    copiesSwitch = NSSwitch()
-    copiesSwitch.target = self
-    copiesSwitch.action = #selector(copiesToggled(_:))
+
+    return [
+      hint("Hold Option for numbered badges on your Dock icons, then press 1–9 or 0 to switch apps. Press again to cycle an app's windows."),
+      section(title: "Badges", rows: [
+        ("Badges always visible", alwaysSwitch),
+        ("Badge delay", delayRow),
+      ]),
+    ]
+  }
+
+  private func clonesPage() -> [NSView] {
+    clonesSwitch = NSSwitch()
+    clonesSwitch.target = self
+    clonesSwitch.action = #selector(clonesToggled(_:))
+    onDockDisplaySwitch = NSSwitch()
+    onDockDisplaySwitch.target = self
+    onDockDisplaySwitch.action = #selector(onDockDisplayToggled(_:))
     keepClearSwitch = NSSwitch()
     keepClearSwitch.target = self
     keepClearSwitch.action = #selector(keepClearToggled(_:))
-    stack.addArrangedSubview(section(title: "Other Displays", rows: [
-      ("Copy the Dock to other displays", copiesSwitch),
-      ("Keep windows clear of the copies", keepClearSwitch),
-    ]))
+    return [
+      hint("A clone of the Dock on every display the real Dock isn't on, with the same apps, running indicators and badges. Zoomed and tiled windows stop at a clone's edge."),
+      section(title: "Dock Clones", rows: [
+        ("Show Dock clones on other displays", clonesSwitch),
+        ("Also on the real Dock's display", onDockDisplaySwitch),
+        ("Keep windows clear of the clones", keepClearSwitch),
+      ]),
+    ]
+  }
 
-    loginErrorLabel = NSTextField(wrappingLabelWithString: "")
-    loginErrorLabel.font = .systemFont(ofSize: 12)
-    loginErrorLabel.textColor = .systemRed
-    loginErrorLabel.preferredMaxLayoutWidth = 360
-    loginErrorLabel.isHidden = true
-    stack.addArrangedSubview(loginErrorLabel)
-
-    // Accessibility group.
-    accessLabel = NSTextField(wrappingLabelWithString: "")
-    accessLabel.font = .systemFont(ofSize: 13)
-    accessLabel.preferredMaxLayoutWidth = 332
-    accessButton = NSButton(title: "Open System Settings…", target: self, action: #selector(openAccessibilitySettings(_:)))
-    accessButton.bezelStyle = .rounded
-    stack.addArrangedSubview(section(title: "Accessibility", rows: [(nil, accessLabel), (nil, accessButton)]))
-
-    // Quit: the only way out when the menu bar icon is hidden.
-    let quitButton = NSButton(title: "Quit DockUtils", target: NSApp, action: #selector(NSApplication.terminate(_:)))
-    quitButton.bezelStyle = .rounded
-    stack.addArrangedSubview(quitButton)
-
-    // About section, laid out like the others: leading-aligned under
-    // its caption instead of centered.
-    let footer = NSStackView()
-    footer.orientation = .vertical
-    footer.alignment = .leading
-    footer.spacing = 4
-    footer.translatesAutoresizingMaskIntoConstraints = false
-    let aboutCaption = NSTextField(labelWithString: "About")
-    aboutCaption.font = .systemFont(ofSize: 13, weight: .semibold)
-    aboutCaption.textColor = .secondaryLabelColor
-    footer.addArrangedSubview(aboutCaption)
-    aboutCaption.font = .systemFont(ofSize: 13, weight: .semibold)
-    aboutCaption.textColor = .secondaryLabelColor
-    aboutCaption.alignment = .center
-    footer.addArrangedSubview(aboutCaption)
+  private func aboutPage() -> [NSView] {
+    let header = NSStackView()
+    header.orientation = .horizontal
+    header.alignment = .centerY
+    header.spacing = 12
+    let iconView = NSImageView(image: NSApp.applicationIconImage)
+    iconView.imageScaling = .scaleProportionallyUpOrDown
+    iconView.translatesAutoresizingMaskIntoConstraints = false
+    NSLayoutConstraint.activate([
+      iconView.widthAnchor.constraint(equalToConstant: 64),
+      iconView.heightAnchor.constraint(equalToConstant: 64),
+    ])
+    header.addArrangedSubview(iconView)
+    let titleStack = NSStackView()
+    titleStack.orientation = .vertical
+    titleStack.alignment = .leading
+    titleStack.spacing = 4
+    let nameRow = NSStackView()
+    nameRow.orientation = .horizontal
+    nameRow.alignment = .lastBaseline
+    nameRow.spacing = 8
+    let title = NSTextField(labelWithString: "DockUtils")
+    title.font = .systemFont(ofSize: 16, weight: .semibold)
+    nameRow.addArrangedSubview(title)
+    if let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
+      let versionLabel = NSTextField(labelWithString: version)
+      versionLabel.font = .systemFont(ofSize: 12)
+      versionLabel.textColor = .secondaryLabelColor
+      nameRow.addArrangedSubview(versionLabel)
+    }
+    titleStack.addArrangedSubview(nameRow)
     let aboutName = NSTextField(labelWithString: "Made by Gellért Kovács")
     aboutName.font = .systemFont(ofSize: 12)
     aboutName.textColor = .secondaryLabelColor
-    footer.addArrangedSubview(aboutName)
+    titleStack.addArrangedSubview(aboutName)
     let repoURL = URL(string: "https://github.com/kovacsgellert/dock-utils-mac")!
     let repoLink = NSTextField(wrappingLabelWithString: "")
     repoLink.isEditable = false
     repoLink.isSelectable = true
-    repoLink.preferredMaxLayoutWidth = 360
     repoLink.attributedStringValue = NSAttributedString(
       string: "github.com/kovacsgellert/dock-utils-mac",
       attributes: [.link: repoURL, .font: NSFont.systemFont(ofSize: 12)]
     )
     // Selectable fields don't always fire links on single click — belt and braces.
     repoLink.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(openRepo(_:))))
-    footer.addArrangedSubview(repoLink)
-    stack.addArrangedSubview(footer)
-
-    refreshAll()
-    NotificationCenter.default.addObserver(
-      self, selector: #selector(refreshAccessibility),
-      name: NSApplication.didBecomeActiveNotification, object: nil
-    )
-    // Live-update the permission row: the grant happens in System Settings.
-    NotificationCenter.default.addObserver(
-      self, selector: #selector(refreshAccessibility),
-      name: .accessibilityChanged, object: nil
-    )
+    titleStack.addArrangedSubview(repoLink)
+    header.addArrangedSubview(titleStack)
+    return [header]
   }
+
+  /// One tab: its views stacked top to bottom at the window's width.
+  private func tab(_ label: String, symbol: String, page views: [NSView]) -> NSTabViewItem {
+    let stack = NSStackView(views: views)
+    stack.orientation = .vertical
+    stack.alignment = .leading
+    stack.spacing = 14
+    stack.edgeInsets = NSEdgeInsets(top: 18, left: 20, bottom: 18, right: 20)
+    stack.translatesAutoresizingMaskIntoConstraints = false
+    let page = NSViewController()
+    page.view = NSView()
+    page.view.addSubview(stack)
+    NSLayoutConstraint.activate([
+      stack.topAnchor.constraint(equalTo: page.view.topAnchor),
+      stack.leadingAnchor.constraint(equalTo: page.view.leadingAnchor),
+      stack.trailingAnchor.constraint(equalTo: page.view.trailingAnchor),
+      stack.bottomAnchor.constraint(equalTo: page.view.bottomAnchor),
+      stack.widthAnchor.constraint(equalToConstant: Self.width),
+    ])
+    // Groups span the full width, so every box in a tab lines up.
+    for view in views where view.identifier == Self.sectionID {
+      view.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -40).isActive = true
+    }
+    page.title = label
+    let item = NSTabViewItem(viewController: page)
+    item.label = label
+    item.image = NSImage(systemSymbolName: symbol, accessibilityDescription: label)
+    return item
+  }
+
+  /// Secondary explanatory text at the top of a tab.
+  private func hint(_ text: String) -> NSTextField {
+    let field = NSTextField(wrappingLabelWithString: text)
+    field.font = .systemFont(ofSize: 12)
+    field.textColor = .secondaryLabelColor
+    // Bound the unwrapped intrinsic width, otherwise the stack overflows.
+    field.preferredMaxLayoutWidth = Self.width - 40
+    return field
+  }
+
+  private static let sectionID = NSUserInterfaceItemIdentifier("section")
 
   /// Caption + rounded group with label/control rows (nil label = full-width row).
   private func section(title: String, rows: [(String?, NSView)]) -> NSView {    let wrap = NSStackView()
@@ -247,7 +275,10 @@ final class SettingsWindowController: NSWindowController {
         row.addArrangedSubview(control)
         inner.addArrangedSubview(row)
       } else {
-        inner.addArrangedSubview(control)
+        // Leading-aligned like the labels (the stack centers by default).
+        let row = NSStackView(views: [control, NSView()])
+        row.orientation = .horizontal
+        inner.addArrangedSubview(row)
       }
     }
     boxView.addSubview(inner)
@@ -258,20 +289,9 @@ final class SettingsWindowController: NSWindowController {
       inner.bottomAnchor.constraint(equalTo: boxView.bottomAnchor, constant: -12),
     ])
     wrap.addArrangedSubview(boxView)
+    boxView.widthAnchor.constraint(equalTo: wrap.widthAnchor).isActive = true
+    wrap.identifier = Self.sectionID
     return wrap
-  }
-
-  /// Shrink the window to its content so nothing clips.
-  private func fitToContent() {
-    guard let window, let content = window.contentView else { return }
-    content.layoutSubtreeIfNeeded()
-    // Measure the root stack itself: contentView.fittingSize overshoots.
-    let root = content.subviews.first { $0.identifier?.rawValue == "root" }
-    let fitting = root?.fittingSize.height ?? content.fittingSize.height
-    if fitting > 0, fitting < 800 {
-      window.setContentSize(NSSize(width: 400, height: fitting))
-      window.center()
-    }
   }
 
   // MARK: - Behavior
@@ -297,9 +317,10 @@ final class SettingsWindowController: NSWindowController {
     loginSwitch.state = LaunchAtLogin.isEnabled ? .on : .off
     menubarSwitch.state = ShowMenuBarIcon.isEnabled ? .on : .off
     alwaysSwitch.state = AppConfig.shared.badgesAlwaysVisible ? .on : .off
-    copiesSwitch.state = AppConfig.shared.dockCopies ? .on : .off
-    keepClearSwitch.state = AppConfig.shared.dockCopiesKeepWindowsClear ? .on : .off
-    keepClearSwitch.isEnabled = AppConfig.shared.dockCopies
+    clonesSwitch.state = AppConfig.shared.dockClones ? .on : .off
+    onDockDisplaySwitch.state = AppConfig.shared.dockClonesOnDockDisplay ? .on : .off
+    keepClearSwitch.state = AppConfig.shared.dockClonesKeepWindowsClear ? .on : .off
+    updateClonesEnabled()
     themePopup.selectItem(withTitle: AppAppearance.current.label)
     delaySlider.doubleValue = Double(AppConfig.shared.badgeDelayMs)
     delayLabel.stringValue = "\(AppConfig.shared.badgeDelayMs) ms"
@@ -338,9 +359,9 @@ final class SettingsWindowController: NSWindowController {
     let granted = AXIsProcessTrusted()
     accessLabel.stringValue = granted
       ? "Accessibility access: granted ✓"
-      : "Accessibility access: required to badge and copy the Dock"
+      : "Accessibility access: required for badges and Dock clones"
     // No need to offer System Settings when there's nothing to fix.
-    accessButton.isHidden = granted
+    accessButton.superview?.isHidden = granted
   }
 
   @objc private func openAccessibilitySettings(_: NSButton) {
@@ -364,15 +385,27 @@ final class SettingsWindowController: NSWindowController {
     NotificationCenter.default.post(name: .appConfigChanged, object: nil)
   }
 
-  @objc private func copiesToggled(_ sender: NSSwitch) {
-    AppConfig.shared.dockCopies = sender.state == .on
+  @objc private func clonesToggled(_ sender: NSSwitch) {
+    AppConfig.shared.dockClones = sender.state == .on
     AppConfig.shared.save()
-    keepClearSwitch.isEnabled = AppConfig.shared.dockCopies
+    updateClonesEnabled()
     NotificationCenter.default.post(name: .appConfigChanged, object: nil)
   }
 
+  @objc private func onDockDisplayToggled(_ sender: NSSwitch) {
+    AppConfig.shared.dockClonesOnDockDisplay = sender.state == .on
+    AppConfig.shared.save()
+    NotificationCenter.default.post(name: .appConfigChanged, object: nil)
+  }
+
+  /// Clone options only matter while clones are on.
+  private func updateClonesEnabled() {
+    onDockDisplaySwitch.isEnabled = AppConfig.shared.dockClones
+    keepClearSwitch.isEnabled = AppConfig.shared.dockClones
+  }
+
   @objc private func keepClearToggled(_ sender: NSSwitch) {
-    AppConfig.shared.dockCopiesKeepWindowsClear = sender.state == .on
+    AppConfig.shared.dockClonesKeepWindowsClear = sender.state == .on
     AppConfig.shared.save()
     NotificationCenter.default.post(name: .appConfigChanged, object: nil)
   }
@@ -413,5 +446,25 @@ private final class GroupBoxView: NSView {
 
   private func refresh() {
     layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
+  }
+}
+
+/// Toolbar tabs that resize the window to each tab's content, keeping the
+/// window's top edge in place (like System Settings' panes).
+final class SettingsTabViewController: NSTabViewController {
+  override func tabView(_ tabView: NSTabView, didSelect item: NSTabViewItem?) {
+    super.tabView(tabView, didSelect: item)
+    fitWindow(animated: true)
+  }
+
+  func fitWindow(animated: Bool) {
+    guard let window = view.window,
+          let page = tabView.selectedTabViewItem?.viewController?.view else { return }
+    page.layoutSubtreeIfNeeded()
+    let content = page.fittingSize
+    let frame = window.frameRect(forContentRect: CGRect(origin: .zero, size: content))
+    let old = window.frame
+    let target = CGRect(x: old.minX, y: old.maxY - frame.height, width: frame.width, height: frame.height)
+    window.setFrame(target, display: true, animate: animated && window.isVisible)
   }
 }

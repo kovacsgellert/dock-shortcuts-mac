@@ -1,17 +1,17 @@
 import Cocoa
 
-/// Dock copies: one copy of the system Dock per other display, kept in sync
+/// Dock clones: one clone of the system Dock per other display, kept in sync
 /// with the Dock, its settings and the display arrangement. Off unless
-/// `dock_copies` is set; idle (no AX reads, no window watching) while off.
+/// `dock_clones` is set; idle (no AX reads, no window watching) while off.
 extension Notification.Name {
-  /// The copies' icons moved, appeared or disappeared (rebuild, auto-hide).
-  static let dockCopiesChanged = Notification.Name("dock-utils.dockCopiesChanged")
+  /// The clones' icons moved, appeared or disappeared (rebuild, auto-hide).
+  static let dockClonesChanged = Notification.Name("dock-utils.dockClonesChanged")
 }
 
-final class DockCopies {
-  static let shared = DockCopies()
+final class DockClones {
+  static let shared = DockClones()
 
-  private var panels: [CGDirectDisplayID: DockCopyPanel] = [:]
+  private var panels: [CGDirectDisplayID: DockClonePanel] = [:]
   private var snapshot = DockSnapshot()
   private var prefs = DockPrefs()
   private var config = AppConfig.shared
@@ -36,8 +36,8 @@ final class DockCopies {
 
   func refresh(force: Bool = false) {
     let freshConfig = AppConfig.shared
-    guard freshConfig.dockCopies else {
-      if config.dockCopies || force { config = freshConfig; removeAll() }
+    guard freshConfig.dockClones else {
+      if config.dockClones || force { config = freshConfig; removeAll() }
       return
     }
     guard let fresh = DockReader.snapshot() else { return }
@@ -58,13 +58,13 @@ final class DockCopies {
   private func rebuild() {
     var keep: Set<CGDirectDisplayID> = []
     for screen in NSScreen.screens {
-      guard let id = screen.displayID, config.dockCopiesOnDockDisplay || id != dockScreenID else { continue }
+      guard let id = screen.displayID, config.dockClonesOnDockDisplay || id != dockScreenID else { continue }
       keep.insert(id)
-      let layout = DockCopyLayout(items: snapshot.items, prefs: prefs, screen: screen.frame)
+      let layout = DockCloneLayout(items: snapshot.items, prefs: prefs, screen: screen.frame)
       if let panel = panels[id] {
         panel.update(layout: layout, items: snapshot.items)
       } else {
-        let panel = DockCopyPanel(screenID: id, layout: layout, items: snapshot.items) { [weak self] item in
+        let panel = DockClonePanel(screenID: id, layout: layout, items: snapshot.items) { [weak self] item in
           self?.click(item)
         }
         panel.onPointer = { [weak self] inside in self?.pointer(inside: inside, id: id) }
@@ -78,11 +78,11 @@ final class DockCopies {
     }
     // Auto-hidden Docks don't reserve space, same as the real one.
     let reserved = prefs.autohide ? [] : panels.values.map { (edge: $0.layout.edge, rect: $0.layout.reserved) }
-    guardian.setReserved(config.dockCopiesKeepWindowsClear ? reserved : [])
+    guardian.setReserved(config.dockClonesKeepWindowsClear ? reserved : [])
     iconsMayHaveMoved()
   }
 
-  /// Where an app's icon sits on each visible copy (Cocoa coordinates),
+  /// Where an app's icon sits on each visible clone (Cocoa coordinates),
   /// so shortcut badges can be drawn there too. Matched by bundle path,
   /// like the real Dock's own badges.
   func icons(of url: URL?, title: String) -> [(frame: CGRect, edge: DockEdge, dock: CGRect)] {
@@ -107,7 +107,7 @@ final class DockCopies {
     }.sorted()
     guard key != lastIconsKey else { return }
     lastIconsKey = key
-    NotificationCenter.default.post(name: .dockCopiesChanged, object: nil)
+    NotificationCenter.default.post(name: .dockClonesChanged, object: nil)
   }
 
   private func removeAll() {
@@ -139,7 +139,7 @@ final class DockCopies {
     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in self?.refresh() }
   }
 
-  /// Auto-hide: reveal when the pointer reaches the copy (only its 1 pt
+  /// Auto-hide: reveal when the pointer reaches the clone (only its 1 pt
   /// sliver at the screen edge is on screen while hidden), hide shortly
   /// after it leaves.
   private func pointer(inside: Bool, id: CGDirectDisplayID) {

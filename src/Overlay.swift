@@ -110,11 +110,11 @@ final class OverlayManager {
     case .right: visible.maxX < screen.frame.maxX ? visible.maxX : nil
     default: nil
     }
-    // Same numbers on the Dock copies on other displays.
+    // Same numbers on the Dock clones on other displays.
     var targets = icons.map { (app: $0.0, icon: $0.1, side: side, dockInnerX: dockInnerX) }
     for app in apps {
-      for copy in DockCopies.shared.icons(of: app.bundleURL, title: app.title) {
-        targets.append((app, copy.frame, DockSide(copy.edge), copy.edge == .right ? copy.dock.minX : copy.dock.maxX))
+      for clone in DockClones.shared.icons(of: app.bundleURL, title: app.title) {
+        targets.append((app, clone.frame, DockSide(clone.edge), clone.edge == .right ? clone.dock.minX : clone.dock.maxX))
       }
     }
 

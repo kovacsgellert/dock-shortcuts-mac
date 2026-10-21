@@ -29,7 +29,7 @@ struct DockSnapshot: Equatable {
 }
 
 extension DockReader {
-  /// Every Dock item (not only running apps), for the Dock copies.
+  /// Every Dock item (not only running apps), for the Dock clones.
   static func snapshot() -> DockSnapshot? {
     guard AXIsProcessTrusted(),
           let dock = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first

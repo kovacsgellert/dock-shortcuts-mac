@@ -1,17 +1,17 @@
 import Cocoa
 
-/// One Dock copy: a borderless panel at the Dock's window level on one screen.
-final class DockCopyPanel {
+/// One Dock clone: a borderless panel at the Dock's window level on one screen.
+final class DockClonePanel {
   let screenID: CGDirectDisplayID
-  private(set) var layout: DockCopyLayout
+  private(set) var layout: DockCloneLayout
   private(set) var isRevealed = true
   private let panel: NSPanel
   private let bubble = TitleBubble()
   private let onClick: (DockItem) -> Void
-  /// Pointer entered (true) or left (false) the copy.
+  /// Pointer entered (true) or left (false) the clone.
   var onPointer: ((Bool) -> Void)?
 
-  init(screenID: CGDirectDisplayID, layout: DockCopyLayout, items: [DockItem], onClick: @escaping (DockItem) -> Void) {
+  init(screenID: CGDirectDisplayID, layout: DockCloneLayout, items: [DockItem], onClick: @escaping (DockItem) -> Void) {
     self.screenID = screenID
     self.layout = layout
     self.onClick = onClick
@@ -35,7 +35,7 @@ final class DockCopyPanel {
     panel.orderFrontRegardless()
   }
 
-  func update(layout: DockCopyLayout, items: [DockItem]) {
+  func update(layout: DockCloneLayout, items: [DockItem]) {
     self.layout = layout
     let root = PointerView(frame: CGRect(origin: .zero, size: layout.frame.size))
     root.onPointer = { [weak self] inside in self?.onPointer?(inside) }
@@ -104,7 +104,7 @@ final class DockCopyPanel {
   }
 }
 
-/// Reports the pointer entering and leaving the whole copy.
+/// Reports the pointer entering and leaving the whole clone.
 private final class PointerView: NSView {
   var onPointer: ((Bool) -> Void)?
 
@@ -132,7 +132,7 @@ private final class DockItemView: NSView {
   private let tile: CGFloat
   private var pressed = false { didSet { needsDisplay = true } }
 
-  init(frame: CGRect, item: DockItem, layout: DockCopyLayout) {
+  init(frame: CGRect, item: DockItem, layout: DockCloneLayout) {
     self.item = item
     edge = layout.edge
     tile = layout.tile
@@ -156,7 +156,7 @@ private final class DockItemView: NSView {
     guard item.isRunning else { return }
     // Running indicator: a small dot between the icon and the screen edge.
     let d: CGFloat = max(3, (tile * 0.1).rounded())
-    let gap = (DockCopyLayout.padding(tile: tile) - d) / 2
+    let gap = (DockCloneLayout.padding(tile: tile) - d) / 2
     let center: CGPoint
     switch edge {
     case .bottom: center = CGPoint(x: bounds.midX, y: gap + d / 2)
