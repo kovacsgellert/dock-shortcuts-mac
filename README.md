@@ -14,13 +14,26 @@ Hold **Option** to overlay numbered glass badges on your macOS Dock icons, then 
 
 Badge placement follows the Dock automatically (left / right / bottom) based on icon geometry.
 
+## Dock copies on other displays
+
+Optional, off by default: **Settings → Other Displays → Copy the Dock to other displays** (or `dock_copies: true`) puts a copy of the Dock on every display the real Dock isn't on, like ExtraDock's Live Dock.
+
+- Same items in the same order (apps, separator, folders, Trash), with running indicators, badges (unread counts) and hover labels. Matches the Dock's position (bottom/left/right), icon size and auto-hide.
+- Clicking an app presses the real Dock item, so it launches, activates or un-minimizes exactly like a Dock click. Folders and Trash open in Finder.
+- Follows Dock changes, display connect/disconnect and rearrangement, and the real Dock moving between displays.
+- **Keep windows clear of the copies** (on by default): zoomed, filled and tiled windows stop at a copy's edge, as they do at the real Dock.
+
+How windows are kept clear: the real Dock reserves space by shrinking `NSScreen.visibleFrame`, and there's no public API to reserve more. SkyLight's private `SLSSetDockRectWithReason` does shrink another display's `visibleFrame`, but it's a single global rect shared with the real Dock, so it can't serve more than one copy. Instead, DockShortcuts watches other apps' windows through Accessibility (`kAXWindowResizedNotification`) and, once a resize settles, shrinks a window whose edge is at (or within a 16 pt tiling margin of) the screen edge under a copy. Moves are left alone, so you can still drag windows over a copy. The catch: the window first animates under the copy, then snaps back about 0.15 s later.
+
+Limitations: minimized windows aren't mirrored, folders don't pop up as stacks, and there's no magnification, bounce, progress bars, drag and drop or right-click menus.
+
 Under the hood: Dock icon positions come from the Accessibility API (`AXDockItem` elements of the Dock process), key interception via `CGEventTap`, badges are borderless `NSPanel`s with `NSVisualEffectView`.
 
 ## Requirements
 
 - macOS 14+
 - Swift toolchain (`xcode-select --install` is enough; full Xcode not required)
-- **Accessibility permission**: the app needs it to read Dock icon positions and listen for the Option key. Grant it in `System Settings → Privacy & Security → Accessibility` for your terminal (or the built binary) on first run.
+- **Accessibility permission**: the app needs it to read Dock icon positions and listen for the Option key, and for Dock copies to press Dock items and resize other apps' windows. Grant it in `System Settings → Privacy & Security → Accessibility` for your terminal (or the built binary) on first run.
 
 ## Build
 
@@ -64,6 +77,9 @@ show_menu_bar_icon: true
 appearance: system  # system | light | dark
 badge_delay_ms: 100  # 0...500
 badges_always_visible: false  # persistent mini-badges on Dock icons
+dock_copies: false  # copy the Dock onto your other displays
+dock_copies_on_dock_display: false  # also on the real Dock's display
+dock_copies_keep_windows_clear: true  # shrink zoomed/tiled windows out of the copies
 ```
 
 The file is created on first launch (existing installs migrate their current settings into it). Hand edits apply live within a couple of seconds, no relaunch needed. Everything is also editable from the settings window.

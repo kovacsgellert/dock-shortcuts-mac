@@ -10,6 +10,8 @@ final class SettingsWindowController: NSWindowController {
   private var accessButton: NSButton!
   private var menubarSwitch: NSSwitch!
   private var alwaysSwitch: NSSwitch!
+  private var copiesSwitch: NSSwitch!
+  private var keepClearSwitch: NSSwitch!
   private var themePopup: NSPopUpButton!
   private var delaySlider: NSSlider!
   private var delayLabel: NSTextField!
@@ -136,6 +138,18 @@ final class SettingsWindowController: NSWindowController {
       ("Badge delay", delayRow),
       ("Appearance", themePopup),
     ]))
+    // Dock copies group.
+    copiesSwitch = NSSwitch()
+    copiesSwitch.target = self
+    copiesSwitch.action = #selector(copiesToggled(_:))
+    keepClearSwitch = NSSwitch()
+    keepClearSwitch.target = self
+    keepClearSwitch.action = #selector(keepClearToggled(_:))
+    stack.addArrangedSubview(section(title: "Other Displays", rows: [
+      ("Copy the Dock to other displays", copiesSwitch),
+      ("Keep windows clear of the copies", keepClearSwitch),
+    ]))
+
     loginErrorLabel = NSTextField(wrappingLabelWithString: "")
     loginErrorLabel.font = .systemFont(ofSize: 12)
     loginErrorLabel.textColor = .systemRed
@@ -286,6 +300,9 @@ final class SettingsWindowController: NSWindowController {
     loginSwitch.state = LaunchAtLogin.isEnabled ? .on : .off
     menubarSwitch.state = ShowMenuBarIcon.isEnabled ? .on : .off
     alwaysSwitch.state = AppConfig.shared.badgesAlwaysVisible ? .on : .off
+    copiesSwitch.state = AppConfig.shared.dockCopies ? .on : .off
+    keepClearSwitch.state = AppConfig.shared.dockCopiesKeepWindowsClear ? .on : .off
+    keepClearSwitch.isEnabled = AppConfig.shared.dockCopies
     themePopup.selectItem(withTitle: AppAppearance.current.label)
     delaySlider.doubleValue = Double(AppConfig.shared.badgeDelayMs)
     delayLabel.stringValue = "\(AppConfig.shared.badgeDelayMs) ms"
@@ -324,7 +341,7 @@ final class SettingsWindowController: NSWindowController {
     let granted = AXIsProcessTrusted()
     accessLabel.stringValue = granted
       ? "Accessibility access: granted ✓"
-      : "Accessibility access: required to badge the Dock"
+      : "Accessibility access: required to badge and copy the Dock"
     // No need to offer System Settings when there's nothing to fix.
     accessButton.isHidden = granted
   }
@@ -347,6 +364,19 @@ final class SettingsWindowController: NSWindowController {
     AppConfig.shared.badgesAlwaysVisible = sender.state == .on
     AppConfig.shared.save()
     updateDelayEnabled()
+    NotificationCenter.default.post(name: .appConfigChanged, object: nil)
+  }
+
+  @objc private func copiesToggled(_ sender: NSSwitch) {
+    AppConfig.shared.dockCopies = sender.state == .on
+    AppConfig.shared.save()
+    keepClearSwitch.isEnabled = AppConfig.shared.dockCopies
+    NotificationCenter.default.post(name: .appConfigChanged, object: nil)
+  }
+
+  @objc private func keepClearToggled(_ sender: NSSwitch) {
+    AppConfig.shared.dockCopiesKeepWindowsClear = sender.state == .on
+    AppConfig.shared.save()
     NotificationCenter.default.post(name: .appConfigChanged, object: nil)
   }
 

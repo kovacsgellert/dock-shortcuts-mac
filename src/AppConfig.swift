@@ -12,6 +12,12 @@ struct AppConfig: Equatable {
   var badgeDelayMs = 100
   /// Persistent mini-badges on Dock icons (no Option hold needed).
   var badgesAlwaysVisible = false
+  /// Copy the Dock onto every display the real Dock isn't on.
+  var dockCopies = false
+  /// Also copy it onto the real Dock's display (on top of the Dock).
+  var dockCopiesOnDockDisplay = false
+  /// Shrink zoomed/tiled windows out of the copies' area.
+  var dockCopiesKeepWindowsClear = true
 
   /// XDG_CONFIG_HOME when set (absolute, ~ expanded), else ~/.config.
   /// macOS has no XDG convention natively, but this keeps dotfile-managed
@@ -94,6 +100,15 @@ struct AppConfig: Equatable {
     if let raw = take("badges_always_visible"), let b = parseBool(raw) {
       config.badgesAlwaysVisible = b
     }
+    if let raw = take("dock_copies"), let b = parseBool(raw) {
+      config.dockCopies = b
+    }
+    if let raw = take("dock_copies_on_dock_display"), let b = parseBool(raw) {
+      config.dockCopiesOnDockDisplay = b
+    }
+    if let raw = take("dock_copies_keep_windows_clear"), let b = parseBool(raw) {
+      config.dockCopiesKeepWindowsClear = b
+    }
     // Older files predate newer keys: backfill once so the file always
     // documents every setting (and hand-editing discovery works).
     if missingKeys {
@@ -111,6 +126,9 @@ struct AppConfig: Equatable {
       appearance: \(appearance.rawValue)  # system | light | dark
       badge_delay_ms: \(badgeDelayMs)  # 0...500
       badges_always_visible: \(badgesAlwaysVisible)
+      dock_copies: \(dockCopies)  # copy the Dock onto your other displays
+      dock_copies_on_dock_display: \(dockCopiesOnDockDisplay)
+      dock_copies_keep_windows_clear: \(dockCopiesKeepWindowsClear)
 
       """
     do {

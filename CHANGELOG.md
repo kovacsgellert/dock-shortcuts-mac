@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Dock copies on other displays (Settings → Other Displays, off by
+  default): the Dock's items, running indicators and badges on every
+  display the real Dock isn't on, matching its position, icon size and
+  auto-hide. Zoomed and tiled windows stop at the copy's edge
+
 ## 1.3.0
 
 - No changes since 1.3.0-beta1

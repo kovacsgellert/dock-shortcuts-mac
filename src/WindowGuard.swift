@@ -1,0 +1,142 @@
+import Cocoa
+import ApplicationServices
+
+/// Keeps windows out of the Dock copies' area, the way `visibleFrame`
+/// keeps them out of the real Dock's.
+///
+/// macOS has no API for a second reserved area (see README), so this
+/// watches every app's windows through Accessibility and, after a window is
+/// resized, shrinks it if its Dock-side edge ends up at (or within a tiling
+/// margin of) the screen edge while overlapping a copy. That covers the
+/// green-button zoom, double-click-title Fill, Sequoia tiling and window
+/// managers, which all size windows to `visibleFrame` (= the whole screen on
+/// displays without the real Dock). Plain moves are left alone, so windows
+/// can still be dragged over a copy, just as over the real Dock.
+final class WindowGuard {
+  /// Reserved bands in Cocoa coordinates.
+  private var reserved: [(edge: DockEdge, rect: CGRect)] = []
+  private var observers: [pid_t: AXObserver] = [:]
+  private var pending: [pid_t: DispatchWorkItem] = [:]
+  private var pendingWindows: [pid_t: [AXUIElement]] = [:]
+  /// How far from the screen edge a window edge still counts as "at the edge":
+  /// Sequoia's "Tiled windows have margins" leaves a gap of about 8 pt.
+  private let edgeTolerance: CGFloat = 16
+
+  init() {
+    let ws = NSWorkspace.shared.notificationCenter
+    ws.addObserver(forName: NSWorkspace.didLaunchApplicationNotification, object: nil, queue: .main) { [weak self] note in
+      guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else { return }
+      // Fresh processes reject AX observers until they finish launching.
+      DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self?.watch(app) }
+    }
+    ws.addObserver(forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: .main) { [weak self] note in
+      guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else { return }
+      self?.unwatch(app.processIdentifier)
+    }
+  }
+
+  func setReserved(_ bands: [(edge: DockEdge, rect: CGRect)]) {
+    let changed = bands.map(\.rect) != reserved.map(\.rect)
+    reserved = bands
+    if bands.isEmpty {
+      for pid in Array(observers.keys) { unwatch(pid) }
+      return
+    }
+    for app in NSWorkspace.shared.runningApplications { watch(app) }
+    // A new or moved copy: fix windows already maximized underneath it.
+    if changed {
+      for pid in observers.keys { clampAllWindows(pid: pid) }
+    }
+  }
+
+  private func watch(_ app: NSRunningApplication) {
+    let pid = app.processIdentifier
+    guard !reserved.isEmpty, observers[pid] == nil, app.activationPolicy == .regular,
+          pid != ProcessInfo.processInfo.processIdentifier else { return }
+    var observer: AXObserver?
+    let callback: AXObserverCallback = { _, element, _, refcon in
+      guard let refcon else { return }
+      Unmanaged<WindowGuard>.fromOpaque(refcon).takeUnretainedValue().windowChanged(element)
+    }
+    guard AXObserverCreate(pid, callback, &observer) == .success, let observer else { return }
+    let appEl = AXUIElementCreateApplication(pid)
+    let refcon = Unmanaged.passUnretained(self).toOpaque()
+    var ok = false
+    // Registered on the app element, these fire for all of its windows.
+    for name in [kAXWindowResizedNotification, kAXWindowCreatedNotification] {
+      ok = AXObserverAddNotification(observer, appEl, name as CFString, refcon) == .success || ok
+    }
+    guard ok else { return }
+    CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
+    observers[pid] = observer
+  }
+
+  private func unwatch(_ pid: pid_t) {
+    guard let observer = observers.removeValue(forKey: pid) else { return }
+    CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
+    pending.removeValue(forKey: pid)?.cancel()
+    pendingWindows[pid] = nil
+  }
+
+  /// Resizes arrive in bursts while zoom/tiling animate; act once it settles.
+  private func windowChanged(_ window: AXUIElement) {
+    var pid: pid_t = 0
+    guard AXUIElementGetPid(window, &pid) == .success else { return }
+    if !(pendingWindows[pid] ?? []).contains(where: { CFEqual($0, window) }) {
+      pendingWindows[pid, default: []].append(window)
+    }
+    pending[pid]?.cancel()
+    let work = DispatchWorkItem { [weak self] in
+      guard let self else { return }
+      let windows = self.pendingWindows.removeValue(forKey: pid) ?? []
+      self.pending[pid] = nil
+      for w in windows { self.clamp(w) }
+    }
+    pending[pid] = work
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
+  }
+
+  private func clampAllWindows(pid: pid_t) {
+    let windows = AX.value(AXUIElementCreateApplication(pid), kAXWindowsAttribute) as? [AXUIElement] ?? []
+    for w in windows { clamp(w) }
+  }
+
+  private func clamp(_ window: AXUIElement) {
+    guard AX.value(window, kAXSubroleAttribute) as? String == kAXStandardWindowSubrole,
+          (AX.value(window, "AXFullScreen") as? NSNumber)?.boolValue != true,
+          (AX.value(window, kAXMinimizedAttribute) as? NSNumber)?.boolValue != true,
+          let frame = AX.frame(window) else { return }
+    // Work in AX coordinates (top-left origin), like the window frame.
+    let screens = NSScreen.screens.map { Coords.flip($0.frame) }
+    guard let screen = screens.max(by: { area($0.intersection(frame)) < area($1.intersection(frame)) }),
+          area(screen.intersection(frame)) > 0 else { return }
+
+    for band in reserved {
+      let strip = Coords.flip(band.rect)
+      guard screen.contains(CGPoint(x: strip.midX, y: strip.midY)), frame.intersects(strip) else { continue }
+      var target = frame
+      switch band.edge {
+      case .bottom:
+        let gap = screen.maxY - frame.maxY
+        guard gap > -2, gap <= edgeTolerance else { continue }
+        target.size.height = strip.minY - max(gap, 0) - frame.minY
+      case .left:
+        let gap = frame.minX - screen.minX
+        guard gap > -2, gap <= edgeTolerance else { continue }
+        target.origin.x = strip.maxX + max(gap, 0)
+        target.size.width = frame.maxX - target.minX
+      case .right:
+        let gap = screen.maxX - frame.maxX
+        guard gap > -2, gap <= edgeTolerance else { continue }
+        target.size.width = strip.minX - max(gap, 0) - frame.minX
+      }
+      // A window mostly under the copy is being parked there on purpose.
+      guard target.width >= 120, target.height >= 80, target != frame else { continue }
+      if target.origin != frame.origin { AX.setPosition(window, target.origin) }
+      AX.setSize(window, target.size)
+      return
+    }
+  }
+
+  private func area(_ r: CGRect) -> CGFloat { r.isNull ? 0 : r.width * r.height }
+}

@@ -102,6 +102,8 @@ struct DockNumbers {
       print("WARNING: no Accessibility permission yet — badges disabled until granted.")
       runChrome(settings: SettingsWindowController.shared, hotkey: hotkey, forceSettings: true)
       persistent.sync()
+      // Starts copying once Accessibility is granted (until then reads fail).
+      DockCopies.shared.start()
       app.run()
       return
     }
@@ -109,6 +111,7 @@ struct DockNumbers {
     runChrome(settings: SettingsWindowController.shared, hotkey: hotkey, forceSettings: noAccessibility)
     print("DockShortcuts daemon running. Hold Option to show numbers, press 1-9/0 to switch. Ctrl+C to quit.")
     persistent.sync()
+    DockCopies.shared.start()
     app.run()
   }
 
