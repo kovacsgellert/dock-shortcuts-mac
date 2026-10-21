@@ -16,7 +16,8 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-14 # Apple Silicon; asset is named accordingly
+    # macOS 26 SDK or newer: the Dock clones use NSGlassEffectView.
+    runs-on: macos-26 # Apple Silicon; asset is named accordingly
     steps:
       - uses: actions/checkout@v4
 
