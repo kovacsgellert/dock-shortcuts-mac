@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.0
+
+- No changes since 1.3.0-beta1
+
 ## 1.3.0-beta1
 
 - Settings: Quit DockShortcuts button, so the app can be closed even with
