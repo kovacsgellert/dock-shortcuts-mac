@@ -13,27 +13,19 @@ final class DockCopies {
   private var screensKey: [CGRect] = []
   private var dockScreenID: CGDirectDisplayID?
   private let guardian = WindowGuard()
-  private var hideDeadline: [CGDirectDisplayID: Date] = [:]
+  private var pendingHide: [CGDirectDisplayID: DispatchWorkItem] = [:]
 
   func start() {
     refresh(force: true)
-    let ws = NSWorkspace.shared.notificationCenter
-    for name in [NSWorkspace.didLaunchApplicationNotification, NSWorkspace.didTerminateApplicationNotification] {
-      // The Dock updates its items a moment after the launch/quit.
-      ws.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { self?.refresh() }
-      }
+    NotificationCenter.default.addObserver(forName: .dockChanged, object: nil, queue: .main) { [weak self] _ in
+      self?.refresh()
     }
-    for name in [NSApplication.didChangeScreenParametersNotification, .appConfigChanged] {
-      NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-        self?.refresh(force: true)
-      }
+    NotificationCenter.default.addObserver(forName: .appConfigChanged, object: nil, queue: .main) { [weak self] _ in
+      self?.refresh(force: true)
     }
-    // Catches everything without a notification: reordering, pinning,
-    // Dock settings, the real Dock moving displays, config edits
-    // (AppConfig.shared is re-read from disk by the app every 2 s).
+    // Everything else arrives as .dockChanged (see DockWatcher), but badge
+    // changes and the real Dock hopping displays send no event at all.
     Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in self?.refresh() }
-    Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in self?.trackAutohide() }
   }
 
   func refresh(force: Bool = false) {
@@ -66,9 +58,11 @@ final class DockCopies {
       if let panel = panels[id] {
         panel.update(layout: layout, items: snapshot.items)
       } else {
-        panels[id] = DockCopyPanel(screenID: id, layout: layout, items: snapshot.items) { [weak self] item in
+        let panel = DockCopyPanel(screenID: id, layout: layout, items: snapshot.items) { [weak self] item in
           self?.click(item)
         }
+        panel.onPointer = { [weak self] inside in self?.pointer(inside: inside, id: id) }
+        panels[id] = panel
       }
       panels[id]?.setRevealed(!prefs.autohide, animated: false)
     }
@@ -109,28 +103,18 @@ final class DockCopies {
     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in self?.refresh() }
   }
 
-  /// Auto-hide: reveal when the pointer touches the edge alongside the
-  /// copy, hide shortly after it leaves.
-  private func trackAutohide() {
-    guard prefs.autohide, !panels.isEmpty else { return }
-    let mouse = NSEvent.mouseLocation
-    for (id, panel) in panels {
-      let shown = panel.layout.frame
-      let atEdge: Bool
-      switch panel.layout.edge {
-      case .bottom: atEdge = mouse.y <= shown.minY + 1 && mouse.x >= shown.minX && mouse.x <= shown.maxX
-      case .left: atEdge = mouse.x <= shown.minX + 1 && mouse.y >= shown.minY && mouse.y <= shown.maxY
-      case .right: atEdge = mouse.x >= shown.maxX - 1 && mouse.y >= shown.minY && mouse.y <= shown.maxY
-      }
-      if !panel.isRevealed {
-        if atEdge { panel.setRevealed(true) }
-      } else if shown.insetBy(dx: -4, dy: -4).contains(mouse) {
-        hideDeadline[id] = nil
-      } else if let deadline = hideDeadline[id] {
-        if Date() >= deadline { panel.setRevealed(false); hideDeadline[id] = nil }
-      } else {
-        hideDeadline[id] = Date().addingTimeInterval(0.4)
-      }
+  /// Auto-hide: reveal when the pointer reaches the copy (only its 1 pt
+  /// sliver at the screen edge is on screen while hidden), hide shortly
+  /// after it leaves.
+  private func pointer(inside: Bool, id: CGDirectDisplayID) {
+    guard prefs.autohide, let panel = panels[id] else { return }
+    pendingHide.removeValue(forKey: id)?.cancel()
+    if inside {
+      panel.setRevealed(true)
+    } else {
+      let work = DispatchWorkItem { [weak panel] in panel?.setRevealed(false) }
+      pendingHide[id] = work
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work)
     }
   }
 

@@ -169,6 +169,8 @@ struct AppConfig: Equatable {
 }
 
 extension Notification.Name {
-  /// Posted when settings change via the window (file watcher tick also applies hand edits).
+  /// Posted when settings change, from the window or by editing config.yml.
   static let appConfigChanged = Notification.Name("dock-utils.configChanged")
+  /// Accessibility permission may have been granted or revoked.
+  static let accessibilityChanged = Notification.Name("dock-utils.accessibilityChanged")
 }

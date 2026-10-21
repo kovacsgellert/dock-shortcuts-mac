@@ -15,7 +15,6 @@ final class SettingsWindowController: NSWindowController {
   private var themePopup: NSPopUpButton!
   private var delaySlider: NSSlider!
   private var delayLabel: NSTextField!
-  private var accessPoll: Timer?
 
   init() {
     let window = NSWindow(
@@ -208,6 +207,11 @@ final class SettingsWindowController: NSWindowController {
       self, selector: #selector(refreshAccessibility),
       name: NSApplication.didBecomeActiveNotification, object: nil
     )
+    // Live-update the permission row: the grant happens in System Settings.
+    NotificationCenter.default.addObserver(
+      self, selector: #selector(refreshAccessibility),
+      name: .accessibilityChanged, object: nil
+    )
   }
 
   /// Caption + rounded group with label/control rows (nil label = full-width row).
@@ -277,13 +281,6 @@ final class SettingsWindowController: NSWindowController {
     window?.center()
     window?.makeKeyAndOrderFront(nil)
     NSApp.activate()
-    // Live-update the permission row while open: the grant happens in
-    // System Settings, so a one-time check would go stale.
-    accessPoll?.invalidate()
-    accessPoll = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-      guard let self, window?.isVisible == true else { return }
-      refreshAccessibility()
-    }
   }
 
   @objc func showFromMenu(_: Any?) {

@@ -8,6 +8,8 @@ final class DockCopyPanel {
   private let panel: NSPanel
   private let bubble = TitleBubble()
   private let onClick: (DockItem) -> Void
+  /// Pointer entered (true) or left (false) the copy.
+  var onPointer: ((Bool) -> Void)?
 
   init(screenID: CGDirectDisplayID, layout: DockCopyLayout, items: [DockItem], onClick: @escaping (DockItem) -> Void) {
     self.screenID = screenID
@@ -35,7 +37,8 @@ final class DockCopyPanel {
 
   func update(layout: DockCopyLayout, items: [DockItem]) {
     self.layout = layout
-    let root = NSView(frame: CGRect(origin: .zero, size: layout.frame.size))
+    let root = PointerView(frame: CGRect(origin: .zero, size: layout.frame.size))
+    root.onPointer = { [weak self] inside in self?.onPointer?(inside) }
     root.addSubview(Self.background(size: layout.frame.size, tile: layout.tile))
     for (item, rect) in zip(items, layout.itemRects) where item.kind != .separator {
       let view = DockItemView(frame: rect, item: item, layout: layout)
@@ -99,6 +102,26 @@ final class DockCopyPanel {
     view.autoresizingMask = [.width, .height]
     return view
   }
+}
+
+/// Reports the pointer entering and leaving the whole copy.
+private final class PointerView: NSView {
+  var onPointer: ((Bool) -> Void)?
+
+  override init(frame: CGRect) {
+    super.init(frame: frame)
+    addTrackingArea(NSTrackingArea(
+      rect: .zero,
+      options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+      owner: self
+    ))
+  }
+
+  @available(*, unavailable)
+  required init?(coder _: NSCoder) { fatalError() }
+
+  override func mouseEntered(with _: NSEvent) { onPointer?(true) }
+  override func mouseExited(with _: NSEvent) { onPointer?(false) }
 }
 
 private final class DockItemView: NSView {

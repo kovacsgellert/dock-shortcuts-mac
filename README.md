@@ -89,7 +89,7 @@ dock_copies_on_dock_display: false  # also on the real Dock's display
 dock_copies_keep_windows_clear: true  # shrink zoomed/tiled windows out of the copies
 ```
 
-The file is created on first launch (existing installs migrate their current settings into it). Hand edits apply live within a couple of seconds, no relaunch needed. Everything is also editable from the settings window.
+The file is created on first launch (existing installs migrate their current settings into it). Hand edits apply as soon as the file is saved, no relaunch needed. Everything is also editable from the settings window.
 
 
 ## Usage

@@ -10,6 +10,9 @@
   default): the Dock's items, running indicators and badges on every
   display the real Dock isn't on, matching its position, icon size and
   auto-hide. Zoomed and tiled windows stop at the copy's edge
+- Reacts to changes as they happen instead of polling: config.yml edits,
+  Dock changes (apps launched, quit, added, removed; Dock settings) and
+  the Accessibility permission being granted
 
 ## 1.3.0
 

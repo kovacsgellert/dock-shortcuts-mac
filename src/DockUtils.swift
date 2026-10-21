@@ -103,6 +103,7 @@ struct DockUtils {
       runChrome(settings: SettingsWindowController.shared, hotkey: hotkey, forceSettings: true)
       persistent.sync()
       // Starts copying once Accessibility is granted (until then reads fail).
+      DockWatcher.shared.start()
       DockCopies.shared.start()
       app.run()
       return
@@ -111,6 +112,7 @@ struct DockUtils {
     runChrome(settings: SettingsWindowController.shared, hotkey: hotkey, forceSettings: noAccessibility)
     print("DockUtils daemon running. Hold Option to show numbers, press 1-9/0 to switch. Ctrl+C to quit.")
     persistent.sync()
+    DockWatcher.shared.start()
     DockCopies.shared.start()
     app.run()
   }
@@ -118,38 +120,54 @@ struct DockUtils {
   /// Retained so the item can be removed when the user hides it (status bar
   /// does not retain items in a way we can reclaim without our own reference).
   static var statusItem: NSStatusItem?
+  private static var configWatcher: FileWatcher?
 
   /// Menu-bar presence (LSUIElement apps have no Dock icon): Settings + Quit,
   /// first-launch window, and event-tap retry once Accessibility is granted.
   static func runChrome(settings: SettingsWindowController, hotkey: HotkeyManager, forceSettings: Bool) {
     updateStatusItem(settings: settings)
 
-    // If the tap couldn't start (no Accessibility), keep retrying on a timer:
-    // granting permission in System Settings never activates us, so an
-    // activation-only retry can miss it entirely. The same tick reloads
-    // config.yml so hand/script edits apply without relaunching.
+    // Hand/script edits to config.yml apply the moment the file changes.
     // Note: `hotkey` is retained by the observer/timer blocks for the app's lifetime.
     var lastApplied = AppConfig.shared
-    Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { _ in
+    configWatcher = FileWatcher(AppConfig.fileURL) {
+      AppConfig.shared.reload()
+      guard AppConfig.shared != lastApplied else { return }
+      // Dev CLI builds leave login items alone (see runDaemon).
+      if isAppBundle, AppConfig.shared.startAtLogin != LaunchAtLogin.isEnabled {
+        try? LaunchAtLogin.setEnabled(AppConfig.shared.startAtLogin)
+      }
+      AppAppearance.apply()
+      updateStatusItem(settings: settings)
+      lastApplied = AppConfig.shared
+      NotificationCenter.default.post(name: .appConfigChanged, object: nil)
+    }
+
+    // Accessibility granted (or revoked): the system announces changes to
+    // the permission list; the trust check lags it slightly.
+    func accessibilityMayHaveChanged() {
       if !hotkey.isRunning, hotkey.start() {
         print("Event tap started — badges enabled.")
       }
-      AppConfig.shared.reload()
-      if AppConfig.shared != lastApplied {
-        // Dev CLI builds leave login items alone (see runDaemon).
-        if isAppBundle, AppConfig.shared.startAtLogin != LaunchAtLogin.isEnabled {
-          try? LaunchAtLogin.setEnabled(AppConfig.shared.startAtLogin)
-        }
-        AppAppearance.apply()
-        updateStatusItem(settings: settings)
-        lastApplied = AppConfig.shared
-      }
+      DockWatcher.shared.observeDock()
+      DockWatcher.shared.post()
+      NotificationCenter.default.post(name: .accessibilityChanged, object: nil)
+    }
+    DistributedNotificationCenter.default().addObserver(
+      forName: NSNotification.Name("com.apple.accessibility.api"), object: nil, queue: .main
+    ) { _ in
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { accessibilityMayHaveChanged() }
     }
     NotificationCenter.default.addObserver(
       forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main
-    ) { _ in
-      if !hotkey.isRunning, hotkey.start() {
-        print("Event tap started — badges enabled.")
+    ) { _ in accessibilityMayHaveChanged() }
+    // Safety net in case the announcement is missed: a slow retry, only
+    // until permission arrives.
+    if !AXIsProcessTrusted() {
+      Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { timer in
+        guard AXIsProcessTrusted() else { return }
+        timer.invalidate()
+        accessibilityMayHaveChanged()
       }
     }
 
