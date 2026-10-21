@@ -156,7 +156,8 @@ final class OverlayManager {
         // in their middle so the badge lands on the icon's corner.
         let s = min(icon.width, icon.height)
         let square = CGRect(x: icon.midX - s / 2, y: icon.midY - s / 2, width: s, height: s)
-        return CGPoint(x: square.maxX - diameter - cornerInset, y: square.minY + cornerInset)
+        // Overhang the icon's right edge slightly, like the Dock's own badges.
+        return CGPoint(x: square.maxX - diameter + 2, y: square.minY + cornerInset)
       }
       return CGPoint(x: icon.minX + cornerInset, y: icon.maxY - diameter - cornerInset)
     case .hold:
