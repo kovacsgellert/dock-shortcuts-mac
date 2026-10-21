@@ -43,17 +43,17 @@ enum AppActivator {
     }
     // Single-window (or windowless) apps: toggle hide / activate.
     // If frontmost *with visible windows*, hide it (toggle). Otherwise
-    // activate — and for Finder, restore minimized windows and open a new
-    // one if there are none, mirroring a Dock click.
-    if app.isActive, !isFinder || hasVisibleWindows(pid: app.processIdentifier) {
+    // activate and restore minimized windows — minimizing the only window
+    // leaves the app frontmost, so that case must not count as visible —
+    // and for Finder open a new window if there are none, mirroring a
+    // Dock click.
+    if app.isActive, hasVisibleWindows(pid: app.processIdentifier) {
       app.hide()
     } else {
       _ = app.activate()
-      if isFinder {
-        unminimizeWindows(pid: app.processIdentifier)
-        if finderWindowCount(pid: app.processIdentifier) == 0 {
-          NSWorkspace.shared.open(URL(fileURLWithPath: NSHomeDirectory()))
-        }
+      unminimizeWindows(pid: app.processIdentifier)
+      if isFinder, finderWindowCount(pid: app.processIdentifier) == 0 {
+        NSWorkspace.shared.open(URL(fileURLWithPath: NSHomeDirectory()))
       }
     }
     return true

@@ -15,6 +15,8 @@
   facing the screen center, as close to the Dock's edge as fits
 - Settings window split into tabs: General, Dock Shortcuts, Dock Clones
   and About
+- Option+number restores an app's minimized window instead of hiding the
+  app (single-window apps stayed frontmost after minimizing)
 - Reacts to changes as they happen instead of polling: config.yml edits,
   Dock changes (apps launched, quit, added, removed; Dock settings) and
   the Accessibility permission being granted
