@@ -1,6 +1,6 @@
 #!/usr/bin/env swift
-// Renders DockShortcuts artwork without design tools:
-//   assets/icon-1024.png  - full-color app icon (dark glass tile + badges 1/2/3)
+// Renders DockUtils artwork without design tools:
+//   assets/icon-1024.png  - full-color app icon (dark glass tile, white dots + bar)
 //   assets/menubar.png    - monochrome template (glass "1" disc, knocked-out glyph)
 // Run: swift scripts/render-icon.swift
 import Cocoa
@@ -48,12 +48,10 @@ func appIcon(size: CGFloat) -> NSImage {
     var dx = (size - (dotD * 3 + dotGap * 2)) / 2
     let dotsY = (size + groupH) / 2 - dotD
     let barY = dotsY - stackGap - barH
+    // Solid white for contrast against the dark tile.
     let frost: (NSBezierPath) -> Void = { path in
-      NSColor(calibratedWhite: 0.32, alpha: 0.95).setFill()
+      NSColor.white.setFill()
       path.fill()
-      NSColor.white.withAlphaComponent(0.55).setStroke()
-      path.lineWidth = size * 0.006
-      path.stroke()
     }
     for _ in 0..<3 {
       frost(NSBezierPath(ovalIn: CGRect(x: dx, y: dotsY, width: dotD, height: dotD)))

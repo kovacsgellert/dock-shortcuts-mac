@@ -1,5 +1,52 @@
 # Changelog
 
+## 2.0.0
+
+DockShortcuts is now **DockUtils**: the number shortcuts plus a new,
+optional Dock clone on every other display.
+
+### New
+
+- Dock clones (Settings → Dock Clones, off by default): a clone of the
+  Dock on every display the real Dock isn't on, with the same items in
+  the same order, running indicators, app badges (unread counts) and
+  hover labels. Follows the Dock's position (bottom, left, right), icon
+  size and auto-hide, and keeps up with apps launching, quitting, being
+  pinned or reordered, and with displays being connected or rearranged.
+  Clicking an icon behaves exactly like clicking it in the Dock
+- Keep windows clear of the clones (on by default): zoomed, filled and
+  tiled windows stop at a clone's edge, as they do at the real Dock
+- Number badges also show on the Dock clones, so Option+number works
+  from whichever display you're looking at
+
+### Changed
+
+- Renamed to DockUtils (`dock-utils-mac`, bundle id
+  `com.kovacsgellert.dock-utils`, Homebrew cask `dock-utils`)
+- Settings window has tabs: General, Dock Shortcuts, Dock Clones and
+  About
+- Always-visible badges on a side Dock sit at the icon's bottom corner
+  facing the screen center, as close to the Dock's edge as fits (top-left
+  for a bottom Dock, as before)
+- Reacts to changes as they happen instead of polling: config.yml edits,
+  Dock changes and the Accessibility permission being granted
+- App icon: white dots and bar for more contrast
+
+### Fixed
+
+- Option+number restores an app's minimized window instead of hiding the
+  app
+- Always-visible badges stay on screen with the Dock on the left (macOS
+  reports a left Dock's icon positions mirrored)
+
+### Upgrading from DockShortcuts
+
+macOS treats DockUtils as a new app. `brew upgrade` moves the
+`dock-shortcuts` cask to `dock-utils`; for manual installs, delete
+`DockShortcuts.app`. Then grant Accessibility to **DockUtils** and remove
+the old **DockShortcuts** entry there. Settings, including start at
+login, are copied from `~/.config/dock-shortcuts/` on first launch.
+
 ## 1.3.0
 
 - No changes since 1.3.0-beta1

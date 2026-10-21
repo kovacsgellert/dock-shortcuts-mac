@@ -2,7 +2,7 @@ import Cocoa
 import ApplicationServices
 
 @main
-struct DockNumbers {
+struct DockUtils {
   static func main() {
     let args = CommandLine.arguments
     if args.contains("--daemon") || (args.count == 1 && isAppBundle) {
@@ -16,7 +16,7 @@ struct DockNumbers {
         let f = a.frame
         print("\(a.index % 10): \(a.title) [\(a.bundleIdentifier ?? "-")] frame=\(Int(f.origin.x)),\(Int(f.origin.y)) \(Int(f.width))x\(Int(f.height))")
       }
-      print("\nTip: swift run dock-shortcuts --activate <number>")
+      print("\nTip: swift run dock-utils --activate <number>")
       return
     }
     if let i = args.firstIndex(of: "--activate"), args.count > i + 1,
@@ -30,10 +30,10 @@ struct DockNumbers {
       print("Activating \(app.title)...")
       exit(AppActivator.activate(app) ? 0 : 1)
     }
-    print("Usage: dock-shortcuts [--list] [--activate <1-9,0>] [--daemon] [--no-accessibility]")
+    print("Usage: dock-utils [--list] [--activate <1-9,0>] [--daemon] [--no-accessibility]")
   }
 
-  /// True when running as DockShortcuts.app rather than a bare binary.
+  /// True when running as DockUtils.app rather than a bare binary.
   static var isAppBundle: Bool {
     Bundle.main.bundleURL.pathExtension == "app"
   }
@@ -102,51 +102,72 @@ struct DockNumbers {
       print("WARNING: no Accessibility permission yet — badges disabled until granted.")
       runChrome(settings: SettingsWindowController.shared, hotkey: hotkey, forceSettings: true)
       persistent.sync()
+      // Clones appear once Accessibility is granted (until then reads fail).
+      DockWatcher.shared.start()
+      DockClones.shared.start()
       app.run()
       return
     }
 
     runChrome(settings: SettingsWindowController.shared, hotkey: hotkey, forceSettings: noAccessibility)
-    print("DockShortcuts daemon running. Hold Option to show numbers, press 1-9/0 to switch. Ctrl+C to quit.")
+    print("DockUtils daemon running. Hold Option to show numbers, press 1-9/0 to switch. Ctrl+C to quit.")
     persistent.sync()
+    DockWatcher.shared.start()
+    DockClones.shared.start()
     app.run()
   }
 
   /// Retained so the item can be removed when the user hides it (status bar
   /// does not retain items in a way we can reclaim without our own reference).
   static var statusItem: NSStatusItem?
+  private static var configWatcher: FileWatcher?
 
   /// Menu-bar presence (LSUIElement apps have no Dock icon): Settings + Quit,
   /// first-launch window, and event-tap retry once Accessibility is granted.
   static func runChrome(settings: SettingsWindowController, hotkey: HotkeyManager, forceSettings: Bool) {
     updateStatusItem(settings: settings)
 
-    // If the tap couldn't start (no Accessibility), keep retrying on a timer:
-    // granting permission in System Settings never activates us, so an
-    // activation-only retry can miss it entirely. The same tick reloads
-    // config.yml so hand/script edits apply without relaunching.
+    // Hand/script edits to config.yml apply the moment the file changes.
     // Note: `hotkey` is retained by the observer/timer blocks for the app's lifetime.
     var lastApplied = AppConfig.shared
-    Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { _ in
+    configWatcher = FileWatcher(AppConfig.fileURL) {
+      AppConfig.shared.reload()
+      guard AppConfig.shared != lastApplied else { return }
+      // Dev CLI builds leave login items alone (see runDaemon).
+      if isAppBundle, AppConfig.shared.startAtLogin != LaunchAtLogin.isEnabled {
+        try? LaunchAtLogin.setEnabled(AppConfig.shared.startAtLogin)
+      }
+      AppAppearance.apply()
+      updateStatusItem(settings: settings)
+      lastApplied = AppConfig.shared
+      NotificationCenter.default.post(name: .appConfigChanged, object: nil)
+    }
+
+    // Accessibility granted (or revoked): the system announces changes to
+    // the permission list; the trust check lags it slightly.
+    func accessibilityMayHaveChanged() {
       if !hotkey.isRunning, hotkey.start() {
         print("Event tap started — badges enabled.")
       }
-      AppConfig.shared.reload()
-      if AppConfig.shared != lastApplied {
-        // Dev CLI builds leave login items alone (see runDaemon).
-        if isAppBundle, AppConfig.shared.startAtLogin != LaunchAtLogin.isEnabled {
-          try? LaunchAtLogin.setEnabled(AppConfig.shared.startAtLogin)
-        }
-        AppAppearance.apply()
-        updateStatusItem(settings: settings)
-        lastApplied = AppConfig.shared
-      }
+      DockWatcher.shared.observeDock()
+      DockWatcher.shared.post()
+      NotificationCenter.default.post(name: .accessibilityChanged, object: nil)
+    }
+    DistributedNotificationCenter.default().addObserver(
+      forName: NSNotification.Name("com.apple.accessibility.api"), object: nil, queue: .main
+    ) { _ in
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { accessibilityMayHaveChanged() }
     }
     NotificationCenter.default.addObserver(
       forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main
-    ) { _ in
-      if !hotkey.isRunning, hotkey.start() {
-        print("Event tap started — badges enabled.")
+    ) { _ in accessibilityMayHaveChanged() }
+    // Safety net in case the announcement is missed: a slow retry, only
+    // until permission arrives.
+    if !AXIsProcessTrusted() {
+      Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { timer in
+        guard AXIsProcessTrusted() else { return }
+        timer.invalidate()
+        accessibilityMayHaveChanged()
       }
     }
 
@@ -165,20 +186,20 @@ struct DockNumbers {
       guard statusItem == nil else { return }
       let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
       if let button = item.button {
-        button.toolTip = "DockShortcuts"
+        button.toolTip = "DockUtils"
         if let url = Bundle.main.url(forResource: "menubar", withExtension: "png"),
            let icon = NSImage(contentsOf: url) {
           icon.isTemplate = true
           icon.size = CGSize(width: 18, height: 18)
           button.image = icon
         } else {
-          button.image = NSImage(systemSymbolName: "square.stack.3d.up", accessibilityDescription: "DockShortcuts")
+          button.image = NSImage(systemSymbolName: "square.stack.3d.up", accessibilityDescription: "DockUtils")
         }
       }
       let menu = NSMenu()
       let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
       let header = NSMenuItem(
-        title: version.map { "DockShortcuts \($0)" } ?? "DockShortcuts",
+        title: version.map { "DockUtils \($0)" } ?? "DockUtils",
         action: nil, keyEquivalent: ""
       )
       header.isEnabled = false

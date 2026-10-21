@@ -3,6 +3,14 @@ import Cocoa
 /// Which screen edge the Dock sits on. Badges go on the screen-center side.
 enum DockSide {
   case left, right, bottom, top
+
+  init(_ edge: DockEdge) {
+    switch edge {
+    case .left: self = .left
+    case .right: self = .right
+    case .bottom: self = .bottom
+    }
+  }
 }
 
 private final class GlassBadgeView: NSVisualEffectView {
@@ -93,9 +101,25 @@ final class OverlayManager {
       return (app, cocoa)
     }
     let side = Self.detectSide(icons: icons.map(\.1), screen: screen.frame)
+    // The real Dock's inner (screen-center-facing) edge on a side Dock:
+    // where visibleFrame begins or ends (nil when auto-hidden, as it then
+    // reserves nothing).
+    let visible = screen.visibleFrame
+    let dockInnerX: CGFloat? = switch side {
+    case .left: visible.minX > screen.frame.minX ? visible.minX : nil
+    case .right: visible.maxX < screen.frame.maxX ? visible.maxX : nil
+    default: nil
+    }
+    // Same numbers on the Dock clones on other displays.
+    var targets = icons.map { (app: $0.0, icon: $0.1, side: side, dockInnerX: dockInnerX) }
+    for app in apps {
+      for clone in DockClones.shared.icons(of: app.bundleURL, title: app.title) {
+        targets.append((app, clone.frame, DockSide(clone.edge), clone.edge == .right ? clone.dock.minX : clone.dock.maxX))
+      }
+    }
 
-    for (app, icon) in icons {
-      let base = self.badgeOrigin(for: icon, side: side, diameter: diameter, style: style)
+    for (app, icon, side, dockInnerX) in targets {
+      let base = self.badgeOrigin(for: icon, side: side, dockInnerX: dockInnerX, diameter: diameter, style: style)
       let origin = base
       let panel = NSPanel(
         contentRect: CGRect(origin: origin, size: CGSize(width: diameter, height: diameter)),
@@ -130,12 +154,28 @@ final class OverlayManager {
     styleShown = nil
   }
 
-  private func badgeOrigin(for icon: CGRect, side: DockSide, diameter: CGFloat, style: BadgeStyle) -> CGPoint {
+  private func badgeOrigin(for icon: CGRect, side: DockSide, dockInnerX: CGFloat?, diameter: CGFloat, style: BadgeStyle) -> CGPoint {
     switch style {
     case .persistent:
-      // Top-left corner of the icon, inset so the badge sits fully
-      // on the icon, inside the Dock perimeter.
-      return CGPoint(x: icon.minX + cornerInset, y: icon.maxY - diameter - cornerInset)
+      // A corner of the icon, inset so the badge sits on the icon, inside
+      // the Dock perimeter: top-left with the Dock at the bottom; on a side
+      // Dock the bottom corner facing the screen center, pushed toward the
+      // Dock's inner edge as far as still fits inside the Dock.
+      guard side == .left || side == .right else {
+        return CGPoint(x: icon.minX + cornerInset, y: icon.maxY - diameter - cornerInset)
+      }
+      // The Dock's item frames are wider than the icon: use the square
+      // in their middle so the badge lands on the icon's corner.
+      let s = min(icon.width, icon.height)
+      let square = CGRect(x: icon.midX - s / 2, y: icon.midY - s / 2, width: s, height: s)
+      // 1 pt inside the Dock's border; without a known edge, slightly over
+      // the icon's.
+      if side == .left {
+        let right = dockInnerX.map { $0 - 1 } ?? square.maxX + 2
+        return CGPoint(x: right - diameter, y: square.minY + cornerInset)
+      }
+      let left = dockInnerX.map { $0 + 1 } ?? square.minX - 2
+      return CGPoint(x: left, y: square.minY + cornerInset)
     case .hold:
       switch side {
       case .right: // Dock on right -> badges to the left, vertically centered

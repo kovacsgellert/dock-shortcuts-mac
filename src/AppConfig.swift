@@ -1,6 +1,6 @@
 import Foundation
 
-/// Portable settings in ~/.config/dock-shortcuts/config.yml (XDG-style).
+/// Portable settings in ~/.config/dock-utils/config.yml (XDG-style).
 /// Hand- and script-editable; the app applies them at launch and reloads
 /// them when the settings window opens. No third-party YAML dependency:
 /// the format is flat `key: value` pairs, parsed below.
@@ -12,6 +12,10 @@ struct AppConfig: Equatable {
   var badgeDelayMs = 100
   /// Persistent mini-badges on Dock icons (no Option hold needed).
   var badgesAlwaysVisible = false
+  /// Show a clone of the Dock on every display the real Dock isn't on.
+  var dockClones = false
+  /// Shrink zoomed/tiled windows out of the clones' area.
+  var dockClonesKeepWindowsClear = true
 
   /// XDG_CONFIG_HOME when set (absolute, ~ expanded), else ~/.config.
   /// macOS has no XDG convention natively, but this keeps dotfile-managed
@@ -21,23 +25,23 @@ struct AppConfig: Equatable {
        !xdg.trimmingCharacters(in: .whitespaces).isEmpty {
       xdg = (xdg as NSString).expandingTildeInPath
       return URL(fileURLWithPath: xdg, isDirectory: true)
-        .appendingPathComponent("dock-shortcuts", isDirectory: true)
+        .appendingPathComponent("dock-utils", isDirectory: true)
     }
     return FileManager.default.homeDirectoryForCurrentUser
-      .appendingPathComponent(".config/dock-shortcuts", isDirectory: true)
+      .appendingPathComponent(".config/dock-utils", isDirectory: true)
   }()
 
   static let fileURL: URL = dirURL.appendingPathComponent("config.yml")
 
-  /// Previous location (pre-rename). Migrated once if the new file is missing.
+  /// Previous location (before the rename from DockShortcuts). Migrated once if the new file is missing.
   private static let legacyFileURL: URL = {
     if let xdg = ProcessInfo.processInfo.environment["XDG_CONFIG_HOME"],
        !(xdg.trimmingCharacters(in: .whitespaces).isEmpty) {
       return URL(fileURLWithPath: (xdg as NSString).expandingTildeInPath, isDirectory: true)
-        .appendingPathComponent("dock-numbers/config.yml")
+        .appendingPathComponent("dock-shortcuts/config.yml")
     }
     return FileManager.default.homeDirectoryForCurrentUser
-      .appendingPathComponent(".config/dock-numbers/config.yml")
+      .appendingPathComponent(".config/dock-shortcuts/config.yml")
   }()
 
   /// Live copy used across the app. Mutate then save(), or reload() from disk.
@@ -94,6 +98,12 @@ struct AppConfig: Equatable {
     if let raw = take("badges_always_visible"), let b = parseBool(raw) {
       config.badgesAlwaysVisible = b
     }
+    if let raw = take("dock_clones"), let b = parseBool(raw) {
+      config.dockClones = b
+    }
+    if let raw = take("dock_clones_keep_windows_clear"), let b = parseBool(raw) {
+      config.dockClonesKeepWindowsClear = b
+    }
     // Older files predate newer keys: backfill once so the file always
     // documents every setting (and hand-editing discovery works).
     if missingKeys {
@@ -104,13 +114,15 @@ struct AppConfig: Equatable {
 
   func save() {
     let text = """
-      # dock-shortcuts settings — portable, safe to edit by hand or scripts.
+      # dock-utils settings — portable, safe to edit by hand or scripts.
       # Regenerated only when missing; your edits are preserved.
       start_at_login: \(startAtLogin)
       show_menu_bar_icon: \(showMenuBarIcon)
       appearance: \(appearance.rawValue)  # system | light | dark
       badge_delay_ms: \(badgeDelayMs)  # 0...500
       badges_always_visible: \(badgesAlwaysVisible)
+      dock_clones: \(dockClones)  # clone the Dock onto your other displays
+      dock_clones_keep_windows_clear: \(dockClonesKeepWindowsClear)
 
       """
     do {
@@ -119,7 +131,7 @@ struct AppConfig: Equatable {
       )
       try text.write(to: Self.fileURL, atomically: true, encoding: .utf8)
     } catch {
-      NSLog("DockShortcuts: couldn't save config: \(error)")
+      NSLog("DockUtils: couldn't save config: \(error)")
     }
   }
 
@@ -151,6 +163,8 @@ struct AppConfig: Equatable {
 }
 
 extension Notification.Name {
-  /// Posted when settings change via the window (file watcher tick also applies hand edits).
-  static let appConfigChanged = Notification.Name("dock-shortcuts.configChanged")
+  /// Posted when settings change, from the window or by editing config.yml.
+  static let appConfigChanged = Notification.Name("dock-utils.configChanged")
+  /// Accessibility permission may have been granted or revoked.
+  static let accessibilityChanged = Notification.Name("dock-utils.accessibilityChanged")
 }

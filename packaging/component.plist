@@ -4,7 +4,7 @@
 <array>
   <dict>
     <key>RootRelativeBundlePath</key>
-    <string>Applications/DockShortcuts.app</string>
+    <string>Applications/DockUtils.app</string>
     <!-- Never "upgrade in place" a stray copy elsewhere on disk (e.g. a
          dev checkout): always install exactly to --install-location. -->
     <key>BundleIsRelocatable</key>
