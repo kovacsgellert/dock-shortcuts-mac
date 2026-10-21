@@ -86,7 +86,6 @@ appearance: system  # system | light | dark
 badge_delay_ms: 100  # 0...500
 badges_always_visible: false  # persistent mini-badges on Dock icons
 dock_clones: false  # clone the Dock onto your other displays
-dock_clones_on_dock_display: false  # also on the real Dock's display
 dock_clones_keep_windows_clear: true  # shrink zoomed/tiled windows out of the clones
 ```
 

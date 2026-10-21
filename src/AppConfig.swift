@@ -14,8 +14,6 @@ struct AppConfig: Equatable {
   var badgesAlwaysVisible = false
   /// Show a clone of the Dock on every display the real Dock isn't on.
   var dockClones = false
-  /// Also show one on the real Dock's display (on top of the Dock).
-  var dockClonesOnDockDisplay = false
   /// Shrink zoomed/tiled windows out of the clones' area.
   var dockClonesKeepWindowsClear = true
 
@@ -103,9 +101,6 @@ struct AppConfig: Equatable {
     if let raw = take("dock_clones"), let b = parseBool(raw) {
       config.dockClones = b
     }
-    if let raw = take("dock_clones_on_dock_display"), let b = parseBool(raw) {
-      config.dockClonesOnDockDisplay = b
-    }
     if let raw = take("dock_clones_keep_windows_clear"), let b = parseBool(raw) {
       config.dockClonesKeepWindowsClear = b
     }
@@ -127,7 +122,6 @@ struct AppConfig: Equatable {
       badge_delay_ms: \(badgeDelayMs)  # 0...500
       badges_always_visible: \(badgesAlwaysVisible)
       dock_clones: \(dockClones)  # clone the Dock onto your other displays
-      dock_clones_on_dock_display: \(dockClonesOnDockDisplay)
       dock_clones_keep_windows_clear: \(dockClonesKeepWindowsClear)
 
       """

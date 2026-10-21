@@ -12,7 +12,6 @@ final class SettingsWindowController: NSWindowController {
   private var menubarSwitch: NSSwitch!
   private var alwaysSwitch: NSSwitch!
   private var clonesSwitch: NSSwitch!
-  private var onDockDisplaySwitch: NSSwitch!
   private var keepClearSwitch: NSSwitch!
   private var themePopup: NSPopUpButton!
   private var delaySlider: NSSlider!
@@ -135,9 +134,6 @@ final class SettingsWindowController: NSWindowController {
     clonesSwitch = NSSwitch()
     clonesSwitch.target = self
     clonesSwitch.action = #selector(clonesToggled(_:))
-    onDockDisplaySwitch = NSSwitch()
-    onDockDisplaySwitch.target = self
-    onDockDisplaySwitch.action = #selector(onDockDisplayToggled(_:))
     keepClearSwitch = NSSwitch()
     keepClearSwitch.target = self
     keepClearSwitch.action = #selector(keepClearToggled(_:))
@@ -145,7 +141,6 @@ final class SettingsWindowController: NSWindowController {
       hint("A clone of the Dock on every display the real Dock isn't on, with the same apps, running indicators and badges. Zoomed and tiled windows stop at a clone's edge."),
       section(title: "Dock Clones", rows: [
         ("Show Dock clones on other displays", clonesSwitch),
-        ("Also on the real Dock's display", onDockDisplaySwitch),
         ("Keep windows clear of the clones", keepClearSwitch),
       ]),
     ]
@@ -319,7 +314,6 @@ final class SettingsWindowController: NSWindowController {
     menubarSwitch.state = ShowMenuBarIcon.isEnabled ? .on : .off
     alwaysSwitch.state = AppConfig.shared.badgesAlwaysVisible ? .on : .off
     clonesSwitch.state = AppConfig.shared.dockClones ? .on : .off
-    onDockDisplaySwitch.state = AppConfig.shared.dockClonesOnDockDisplay ? .on : .off
     keepClearSwitch.state = AppConfig.shared.dockClonesKeepWindowsClear ? .on : .off
     updateClonesEnabled()
     themePopup.selectItem(withTitle: AppAppearance.current.label)
@@ -396,15 +390,8 @@ final class SettingsWindowController: NSWindowController {
     NotificationCenter.default.post(name: .appConfigChanged, object: nil)
   }
 
-  @objc private func onDockDisplayToggled(_ sender: NSSwitch) {
-    AppConfig.shared.dockClonesOnDockDisplay = sender.state == .on
-    AppConfig.shared.save()
-    NotificationCenter.default.post(name: .appConfigChanged, object: nil)
-  }
-
   /// Clone options only matter while clones are on.
   private func updateClonesEnabled() {
-    onDockDisplaySwitch.isEnabled = AppConfig.shared.dockClones
     keepClearSwitch.isEnabled = AppConfig.shared.dockClones
   }
 

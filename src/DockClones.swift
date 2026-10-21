@@ -58,7 +58,7 @@ final class DockClones {
   private func rebuild() {
     var keep: Set<CGDirectDisplayID> = []
     for screen in NSScreen.screens {
-      guard let id = screen.displayID, config.dockClonesOnDockDisplay || id != dockScreenID else { continue }
+      guard let id = screen.displayID, id != dockScreenID else { continue }
       keep.insert(id)
       let layout = DockCloneLayout(items: snapshot.items, prefs: prefs, screen: screen.frame)
       if let panel = panels[id] {
