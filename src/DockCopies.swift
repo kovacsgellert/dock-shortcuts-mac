@@ -3,6 +3,11 @@ import Cocoa
 /// Dock copies: one copy of the system Dock per other display, kept in sync
 /// with the Dock, its settings and the display arrangement. Off unless
 /// `dock_copies` is set; idle (no AX reads, no window watching) while off.
+extension Notification.Name {
+  /// The copies' icons moved, appeared or disappeared (rebuild, auto-hide).
+  static let dockCopiesChanged = Notification.Name("dock-utils.dockCopiesChanged")
+}
+
 final class DockCopies {
   static let shared = DockCopies()
 
@@ -14,6 +19,7 @@ final class DockCopies {
   private var dockScreenID: CGDirectDisplayID?
   private let guardian = WindowGuard()
   private var pendingHide: [CGDirectDisplayID: DispatchWorkItem] = [:]
+  private var lastIconsKey: [String] = []
 
   func start() {
     refresh(force: true)
@@ -73,6 +79,35 @@ final class DockCopies {
     // Auto-hidden Docks don't reserve space, same as the real one.
     let reserved = prefs.autohide ? [] : panels.values.map { (edge: $0.layout.edge, rect: $0.layout.reserved) }
     guardian.setReserved(config.dockCopiesKeepWindowsClear ? reserved : [])
+    iconsMayHaveMoved()
+  }
+
+  /// Where an app's icon sits on each visible copy (Cocoa coordinates),
+  /// so shortcut badges can be drawn there too. Matched by bundle path,
+  /// like the real Dock's own badges.
+  func icons(of url: URL?, title: String) -> [(frame: CGRect, edge: DockEdge)] {
+    var out: [(frame: CGRect, edge: DockEdge)] = []
+    for panel in panels.values where panel.isRevealed {
+      let layout = panel.layout
+      for (item, slot) in zip(snapshot.items, layout.itemRects) where item.kind == .app {
+        guard url.map({ $0.path == item.url?.path }) ?? (item.title == title) else { continue }
+        let slot = slot.offsetBy(dx: layout.frame.minX, dy: layout.frame.minY)
+        let icon = CGRect(x: slot.midX - layout.tile / 2, y: slot.midY - layout.tile / 2, width: layout.tile, height: layout.tile)
+        out.append((icon, layout.edge))
+      }
+    }
+    return out
+  }
+
+  /// Tell badge overlays to redraw, but only when icon positions changed
+  /// (not for every badge count or running-state flip).
+  private func iconsMayHaveMoved() {
+    let key = panels.values.filter(\.isRevealed).map { panel in
+      "\(panel.layout.frame)|" + snapshot.items.map { $0.url?.path ?? $0.title }.joined(separator: ",")
+    }.sorted()
+    guard key != lastIconsKey else { return }
+    lastIconsKey = key
+    NotificationCenter.default.post(name: .dockCopiesChanged, object: nil)
   }
 
   private func removeAll() {
@@ -81,6 +116,7 @@ final class DockCopies {
     guardian.setReserved([])
     // Rebuild from scratch when switched back on.
     snapshot = DockSnapshot()
+    iconsMayHaveMoved()
   }
 
   private func click(_ item: DockItem) {
@@ -111,8 +147,12 @@ final class DockCopies {
     pendingHide.removeValue(forKey: id)?.cancel()
     if inside {
       panel.setRevealed(true)
+      iconsMayHaveMoved()
     } else {
-      let work = DispatchWorkItem { [weak panel] in panel?.setRevealed(false) }
+      let work = DispatchWorkItem { [weak self, weak panel] in
+        panel?.setRevealed(false)
+        self?.iconsMayHaveMoved()
+      }
       pendingHide[id] = work
       DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work)
     }

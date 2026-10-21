@@ -26,6 +26,7 @@ Optional, off by default: **Settings → Other Displays → Copy the Dock to oth
 - Same items in the same order (apps, separator, folders, Trash), with running indicators, badges (unread counts) and hover labels. Matches the Dock's position (bottom/left/right), icon size and auto-hide.
 - Clicking an app presses the real Dock item, so it launches, activates or un-minimizes exactly like a Dock click. Folders and Trash open in Finder.
 - Follows Dock changes, display connect/disconnect and rearrangement, and the real Dock moving between displays.
+- The number badges (hold Option, or always visible) show on the copies too, so Option+number works from whichever display you're looking at.
 - **Keep windows clear of the copies** (on by default): zoomed, filled and tiled windows stop at a copy's edge, as they do at the real Dock.
 
 How windows are kept clear: the real Dock reserves space by shrinking `NSScreen.visibleFrame`, and there's no public API to reserve more. SkyLight's private `SLSSetDockRectWithReason` does shrink another display's `visibleFrame`, but it's a single global rect shared with the real Dock, so it can't serve more than one copy. Instead, DockUtils watches other apps' windows through Accessibility (`kAXWindowResizedNotification`) and, once a resize settles, shrinks a window whose edge is at (or within a 16 pt tiling margin of) the screen edge under a copy. Moves are left alone, so you can still drag windows over a copy. The catch: the window first animates under the copy, then snaps back about 0.15 s later.

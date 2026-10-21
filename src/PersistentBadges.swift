@@ -18,6 +18,9 @@ final class PersistentBadges: NSObject {
     for name in [Notification.Name.dockChanged, .appConfigChanged] {
       NotificationCenter.default.addObserver(self, selector: #selector(sync), name: name, object: nil)
     }
+    // Dock copies moved or appeared: their badges need redrawing even
+    // though the real Dock didn't change.
+    NotificationCenter.default.addObserver(self, selector: #selector(copiesChanged), name: .dockCopiesChanged, object: nil)
     // The real Dock hopping to another display sends no event: slow poll.
     Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
       self?.sync()
@@ -32,6 +35,11 @@ final class PersistentBadges: NSObject {
     apps.map {
       "\($0.index)|\($0.title)|\($0.bundleURL?.path ?? "")|\(Int($0.frame.minX / 4))|\(Int($0.frame.minY / 4))"
     }
+  }
+
+  @objc private func copiesChanged() {
+    lastKey = []
+    sync()
   }
 
   @objc func sync() {

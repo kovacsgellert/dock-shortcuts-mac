@@ -3,6 +3,14 @@ import Cocoa
 /// Which screen edge the Dock sits on. Badges go on the screen-center side.
 enum DockSide {
   case left, right, bottom, top
+
+  init(_ edge: DockEdge) {
+    switch edge {
+    case .left: self = .left
+    case .right: self = .right
+    case .bottom: self = .bottom
+    }
+  }
 }
 
 private final class GlassBadgeView: NSVisualEffectView {
@@ -93,8 +101,15 @@ final class OverlayManager {
       return (app, cocoa)
     }
     let side = Self.detectSide(icons: icons.map(\.1), screen: screen.frame)
+    // Same numbers on the Dock copies on other displays.
+    var targets = icons.map { (app: $0.0, icon: $0.1, side: side) }
+    for app in apps {
+      for copy in DockCopies.shared.icons(of: app.bundleURL, title: app.title) {
+        targets.append((app, copy.frame, DockSide(copy.edge)))
+      }
+    }
 
-    for (app, icon) in icons {
+    for (app, icon, side) in targets {
       let base = self.badgeOrigin(for: icon, side: side, diameter: diameter, style: style)
       let origin = base
       let panel = NSPanel(
