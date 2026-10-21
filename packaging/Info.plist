@@ -5,15 +5,15 @@
   <key>CFBundleDevelopmentRegion</key>
   <string>en</string>
   <key>CFBundleDisplayName</key>
-  <string>DockShortcuts</string>
+  <string>DockUtils</string>
   <key>CFBundleExecutable</key>
-  <string>dock-shortcuts</string>
+  <string>dock-utils</string>
   <key>CFBundleIdentifier</key>
-  <string>com.kovacsgellert.dock-shortcuts</string>
+  <string>com.kovacsgellert.dock-utils</string>
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundleName</key>
-  <string>DockShortcuts</string>
+  <string>DockUtils</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
@@ -21,7 +21,7 @@
   <key>CFBundleVersion</key>
   <string>__VERSION__</string>
   <key>CFBundleIconFile</key>
-  <string>dock-shortcuts</string>
+  <string>dock-utils</string>
   <key>LSMinimumSystemVersion</key>
   <string>14.0</string>
   <!-- Menu-bar agent: no Dock icon, lives in the menu bar while running. -->

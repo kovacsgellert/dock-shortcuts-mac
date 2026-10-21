@@ -24,7 +24,7 @@ final class SettingsWindowController: NSWindowController {
       backing: .buffered,
       defer: false
     )
-    window.title = "DockShortcuts"
+    window.title = "DockUtils"
     window.center()
     window.isReleasedWhenClosed = false
     super.init(window: window)
@@ -77,7 +77,7 @@ final class SettingsWindowController: NSWindowController {
     nameRow.orientation = .horizontal
     nameRow.alignment = .lastBaseline
     nameRow.spacing = 8
-    let title = NSTextField(labelWithString: "DockShortcuts")
+    let title = NSTextField(labelWithString: "DockUtils")
     title.font = .systemFont(ofSize: 16, weight: .semibold)
     nameRow.addArrangedSubview(title)
     if let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
@@ -166,7 +166,7 @@ final class SettingsWindowController: NSWindowController {
     stack.addArrangedSubview(section(title: "Accessibility", rows: [(nil, accessLabel), (nil, accessButton)]))
 
     // Quit: the only way out when the menu bar icon is hidden.
-    let quitButton = NSButton(title: "Quit DockShortcuts", target: NSApp, action: #selector(NSApplication.terminate(_:)))
+    let quitButton = NSButton(title: "Quit DockUtils", target: NSApp, action: #selector(NSApplication.terminate(_:)))
     quitButton.bezelStyle = .rounded
     stack.addArrangedSubview(quitButton)
 
@@ -189,13 +189,13 @@ final class SettingsWindowController: NSWindowController {
     aboutName.font = .systemFont(ofSize: 12)
     aboutName.textColor = .secondaryLabelColor
     footer.addArrangedSubview(aboutName)
-    let repoURL = URL(string: "https://github.com/kovacsgellert/dock-shortcuts-mac")!
+    let repoURL = URL(string: "https://github.com/kovacsgellert/dock-utils-mac")!
     let repoLink = NSTextField(wrappingLabelWithString: "")
     repoLink.isEditable = false
     repoLink.isSelectable = true
     repoLink.preferredMaxLayoutWidth = 360
     repoLink.attributedStringValue = NSAttributedString(
-      string: "github.com/kovacsgellert/dock-shortcuts-mac",
+      string: "github.com/kovacsgellert/dock-utils-mac",
       attributes: [.link: repoURL, .font: NSFont.systemFont(ofSize: 12)]
     )
     // Selectable fields don't always fire links on single click — belt and braces.
@@ -295,8 +295,8 @@ final class SettingsWindowController: NSWindowController {
     AppConfig.shared.reload()
     // Dev builds can't own the login item (see loginToggled): show the
     // switch disabled rather than a meaningless state.
-    loginSwitch.isEnabled = DockNumbers.isAppBundle
-    loginSwitch.toolTip = DockNumbers.isAppBundle ? nil : "Start-at-login is managed by the installed DockShortcuts.app, not dev builds."
+    loginSwitch.isEnabled = DockUtils.isAppBundle
+    loginSwitch.toolTip = DockUtils.isAppBundle ? nil : "Start-at-login is managed by the installed DockUtils.app, not dev builds."
     loginSwitch.state = LaunchAtLogin.isEnabled ? .on : .off
     menubarSwitch.state = ShowMenuBarIcon.isEnabled ? .on : .off
     alwaysSwitch.state = AppConfig.shared.badgesAlwaysVisible ? .on : .off
@@ -314,9 +314,9 @@ final class SettingsWindowController: NSWindowController {
   @objc private func loginToggled(_ sender: NSSwitch) {
     // Dev builds run as a bare binary: toggling here would register that
     // throwaway binary (or unregister the installed app) at login.
-    guard DockNumbers.isAppBundle else {
+    guard DockUtils.isAppBundle else {
       sender.state = .off
-      loginErrorLabel.stringValue = "Start-at-login is managed by the installed DockShortcuts.app, not dev builds."
+      loginErrorLabel.stringValue = "Start-at-login is managed by the installed DockUtils.app, not dev builds."
       loginErrorLabel.isHidden = false
       return
     }
@@ -334,7 +334,7 @@ final class SettingsWindowController: NSWindowController {
 
   @objc private func menubarToggled(_ sender: NSSwitch) {
     ShowMenuBarIcon.setEnabled(sender.state == .on)
-    DockNumbers.updateStatusItem(settings: SettingsWindowController.shared)
+    DockUtils.updateStatusItem(settings: SettingsWindowController.shared)
   }
 
   @objc private func refreshAccessibility() {
@@ -351,7 +351,7 @@ final class SettingsWindowController: NSWindowController {
   }
 
   @objc private func openRepo(_: NSGestureRecognizer) {
-    NSWorkspace.shared.open(URL(string: "https://github.com/kovacsgellert/dock-shortcuts-mac")!)
+    NSWorkspace.shared.open(URL(string: "https://github.com/kovacsgellert/dock-utils-mac")!)
   }
 
   @objc private func appearanceChanged(_ sender: NSPopUpButton) {

@@ -1,5 +1,5 @@
 #!/usr/bin/env swift
-// Renders DockShortcuts artwork without design tools:
+// Renders DockUtils artwork without design tools:
 //   assets/icon-1024.png  - full-color app icon (dark glass tile + badges 1/2/3)
 //   assets/menubar.png    - monochrome template (glass "1" disc, knocked-out glyph)
 // Run: swift scripts/render-icon.swift

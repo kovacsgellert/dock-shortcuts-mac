@@ -2,7 +2,7 @@ import Cocoa
 import ApplicationServices
 
 @main
-struct DockNumbers {
+struct DockUtils {
   static func main() {
     let args = CommandLine.arguments
     if args.contains("--daemon") || (args.count == 1 && isAppBundle) {
@@ -16,7 +16,7 @@ struct DockNumbers {
         let f = a.frame
         print("\(a.index % 10): \(a.title) [\(a.bundleIdentifier ?? "-")] frame=\(Int(f.origin.x)),\(Int(f.origin.y)) \(Int(f.width))x\(Int(f.height))")
       }
-      print("\nTip: swift run dock-shortcuts --activate <number>")
+      print("\nTip: swift run dock-utils --activate <number>")
       return
     }
     if let i = args.firstIndex(of: "--activate"), args.count > i + 1,
@@ -30,10 +30,10 @@ struct DockNumbers {
       print("Activating \(app.title)...")
       exit(AppActivator.activate(app) ? 0 : 1)
     }
-    print("Usage: dock-shortcuts [--list] [--activate <1-9,0>] [--daemon] [--no-accessibility]")
+    print("Usage: dock-utils [--list] [--activate <1-9,0>] [--daemon] [--no-accessibility]")
   }
 
-  /// True when running as DockShortcuts.app rather than a bare binary.
+  /// True when running as DockUtils.app rather than a bare binary.
   static var isAppBundle: Bool {
     Bundle.main.bundleURL.pathExtension == "app"
   }
@@ -109,7 +109,7 @@ struct DockNumbers {
     }
 
     runChrome(settings: SettingsWindowController.shared, hotkey: hotkey, forceSettings: noAccessibility)
-    print("DockShortcuts daemon running. Hold Option to show numbers, press 1-9/0 to switch. Ctrl+C to quit.")
+    print("DockUtils daemon running. Hold Option to show numbers, press 1-9/0 to switch. Ctrl+C to quit.")
     persistent.sync()
     DockCopies.shared.start()
     app.run()
@@ -168,20 +168,20 @@ struct DockNumbers {
       guard statusItem == nil else { return }
       let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
       if let button = item.button {
-        button.toolTip = "DockShortcuts"
+        button.toolTip = "DockUtils"
         if let url = Bundle.main.url(forResource: "menubar", withExtension: "png"),
            let icon = NSImage(contentsOf: url) {
           icon.isTemplate = true
           icon.size = CGSize(width: 18, height: 18)
           button.image = icon
         } else {
-          button.image = NSImage(systemSymbolName: "square.stack.3d.up", accessibilityDescription: "DockShortcuts")
+          button.image = NSImage(systemSymbolName: "square.stack.3d.up", accessibilityDescription: "DockUtils")
         }
       }
       let menu = NSMenu()
       let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
       let header = NSMenuItem(
-        title: version.map { "DockShortcuts \($0)" } ?? "DockShortcuts",
+        title: version.map { "DockUtils \($0)" } ?? "DockUtils",
         action: nil, keyEquivalent: ""
       )
       header.isEnabled = false

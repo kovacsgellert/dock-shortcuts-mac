@@ -1,8 +1,13 @@
-<img src="assets/icon-1024.png" width="128" alt="DockShortcuts icon">
+<img src="assets/icon-1024.png" width="128" alt="DockUtils icon">
 
-# DockShortcuts
+# DockUtils
 
-Hold **Option** to overlay numbered glass badges on your macOS Dock icons, then press a number to switch to that app — a minimal, keyboard-first app switcher.
+Small utilities for the macOS Dock:
+
+- **Dock shortcuts:** hold **Option** to overlay numbered glass badges on your Dock icons, then press a number to switch to that app — a minimal, keyboard-first app switcher.
+- **Dock copies:** optionally, a copy of the Dock on every other display, with zoomed and tiled windows kept clear of it.
+
+Formerly DockShortcuts (`dock-shortcuts-mac`).
 
 ![Numbered glass badges above the Dock](screenshots/dock-overlay.png)
 
@@ -23,7 +28,7 @@ Optional, off by default: **Settings → Other Displays → Copy the Dock to oth
 - Follows Dock changes, display connect/disconnect and rearrangement, and the real Dock moving between displays.
 - **Keep windows clear of the copies** (on by default): zoomed, filled and tiled windows stop at a copy's edge, as they do at the real Dock.
 
-How windows are kept clear: the real Dock reserves space by shrinking `NSScreen.visibleFrame`, and there's no public API to reserve more. SkyLight's private `SLSSetDockRectWithReason` does shrink another display's `visibleFrame`, but it's a single global rect shared with the real Dock, so it can't serve more than one copy. Instead, DockShortcuts watches other apps' windows through Accessibility (`kAXWindowResizedNotification`) and, once a resize settles, shrinks a window whose edge is at (or within a 16 pt tiling margin of) the screen edge under a copy. Moves are left alone, so you can still drag windows over a copy. The catch: the window first animates under the copy, then snaps back about 0.15 s later.
+How windows are kept clear: the real Dock reserves space by shrinking `NSScreen.visibleFrame`, and there's no public API to reserve more. SkyLight's private `SLSSetDockRectWithReason` does shrink another display's `visibleFrame`, but it's a single global rect shared with the real Dock, so it can't serve more than one copy. Instead, DockUtils watches other apps' windows through Accessibility (`kAXWindowResizedNotification`) and, once a resize settles, shrinks a window whose edge is at (or within a 16 pt tiling margin of) the screen edge under a copy. Moves are left alone, so you can still drag windows over a copy. The catch: the window first animates under the copy, then snaps back about 0.15 s later.
 
 Limitations: minimized windows aren't mirrored, folders don't pop up as stacks, and there's no magnification, bounce, progress bars, drag and drop or right-click menus.
 
@@ -47,19 +52,21 @@ Via Homebrew:
 
 ```sh
 brew tap kovacsgellert/tap
-brew install --cask dock-shortcuts
+brew install --cask dock-utils
 ```
 
 Or manually:
 
-1. Download `dock-shortcuts-<version>-macos-arm64.dmg` from the [Releases page](https://github.com/kovacsgellert/dock-shortcuts-mac/releases), open it, and drag **DockShortcuts** into **Applications**. (Prefer a guided install? Use `dock-shortcuts-<version>-macos-arm64.pkg` instead — it puts the app into `/Applications` automatically.)
+1. Download `dock-utils-<version>-macos-arm64.dmg` from the [Releases page](https://github.com/kovacsgellert/dock-utils-mac/releases), open it, and drag **DockUtils** into **Applications**. (Prefer a guided install? Use `dock-utils-<version>-macos-arm64.pkg` instead — it puts the app into `/Applications` automatically.)
 2. Neither is notarized, so Gatekeeper blocks the first launch. On macOS 15 (Sequoia) and later, try to open the app once, then go to `System Settings → Privacy & Security`, scroll down and click **Open Anyway**. On macOS 14, right-click the app and choose **Open** instead.
 3. Grant Accessibility permission when prompted (`System Settings → Privacy & Security → Accessibility`).
 4. A settings window opens on first launch: toggle **Start automatically when you log in** if you want it always running. The window can be reopened anytime from the menu-bar icon.
 
 ### Updating
 
-Update with `brew upgrade --cask dock-shortcuts`, or by dragging the new version over the old one in Applications. Releases from 1.3.0-beta1 on are signed with the same certificate, so the Accessibility permission carries over. Coming from 1.2.0 or older, macOS treats the update as a new app once: in `System Settings → Privacy & Security → Accessibility`, remove the old **DockShortcuts** entry with **−**, then launch the app and grant permission again.
+Update with `brew upgrade --cask dock-utils`, or by dragging the new version over the old one in Applications. Releases are signed with the same certificate, so the Accessibility permission carries over.
+
+Coming from DockShortcuts: DockUtils is a new app as far as macOS is concerned (new name and bundle id `com.kovacsgellert.dock-utils`). Your `~/.config/dock-shortcuts/config.yml` is copied over on first launch. Grant Accessibility to **DockUtils**, then remove the old **DockShortcuts** entry there with **−** and delete `DockShortcuts.app` if it's still in Applications.
 
 ### Releasing
 
@@ -69,7 +76,7 @@ Releases are signed with a self-signed certificate (no paid Apple Developer ID),
 
 ## Configuration file
 
-Settings live in `~/.config/dock-shortcuts/config.yml` — plain `key: value` pairs, safe to edit by hand or manage with scripts across machines. If `XDG_CONFIG_HOME` is set, `$XDG_CONFIG_HOME/dock-shortcuts/config.yml` is used instead.
+Settings live in `~/.config/dock-utils/config.yml` — plain `key: value` pairs, safe to edit by hand or manage with scripts across machines. If `XDG_CONFIG_HOME` is set, `$XDG_CONFIG_HOME/dock-utils/config.yml` is used instead.
 
 ```yaml
 start_at_login: false
@@ -90,19 +97,19 @@ The file is created on first launch (existing installs migrate their current set
 List running Dock apps and their badge numbers:
 
 ```sh
-swift run dock-shortcuts --list
+swift run dock-utils --list
 ```
 
 Activate an app by number (same as pressing it while holding Option):
 
 ```sh
-swift run dock-shortcuts --activate 2
+swift run dock-utils --activate 2
 ```
 
 Run the daemon (hold Option to badge, press a number to switch, `Ctrl+C` to quit):
 
 ```sh
-swift run dock-shortcuts --daemon
+swift run dock-utils --daemon
 ```
 
 ## AI usage disclosure

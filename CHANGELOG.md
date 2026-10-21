@@ -1,7 +1,11 @@
 # Changelog
 
-## Unreleased
+## 2.0.0-beta1
 
+- Renamed to DockUtils (`dock-utils-mac`), with a new bundle id
+  `com.kovacsgellert.dock-utils`: macOS sees a new app, so grant
+  Accessibility again (see README → Updating). Settings are copied from
+  `~/.config/dock-shortcuts/` on first launch
 - Dock copies on other displays (Settings → Other Displays, off by
   default): the Dock's items, running indicators and badges on every
   display the real Dock isn't on, matching its position, icon size and

@@ -5,7 +5,7 @@ import Cocoa
 enum AppAppearance: String, CaseIterable {
   case system, light, dark
 
-  /// Backed by ~/.config/dock-shortcuts/config.yml via AppConfig.
+  /// Backed by ~/.config/dock-utils/config.yml via AppConfig.
   static var current: AppAppearance {
     get { AppConfig.shared.appearance }
     set {
