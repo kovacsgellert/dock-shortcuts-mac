@@ -34,7 +34,7 @@ final class SettingsWindowController: NSWindowController {
     super.init(window: window)
     buildUI()
     window.contentViewController = tabs
-    tabs.fitWindow(animated: false)
+    tabs.fitWindow()
     window.center()
   }
 
@@ -216,7 +216,8 @@ final class SettingsWindowController: NSWindowController {
       stack.topAnchor.constraint(equalTo: page.view.topAnchor),
       stack.leadingAnchor.constraint(equalTo: page.view.leadingAnchor),
       stack.trailingAnchor.constraint(equalTo: page.view.trailingAnchor),
-      stack.bottomAnchor.constraint(equalTo: page.view.bottomAnchor),
+      // Pinned to the top; shorter tabs leave room below.
+      stack.bottomAnchor.constraint(lessThanOrEqualTo: page.view.bottomAnchor),
       stack.widthAnchor.constraint(equalToConstant: Self.width),
     ])
     // Groups span the full width, so every box in a tab lines up.
@@ -336,6 +337,7 @@ final class SettingsWindowController: NSWindowController {
       sender.state = .off
       loginErrorLabel.stringValue = "Start-at-login is managed by the installed DockUtils.app, not dev builds."
       loginErrorLabel.isHidden = false
+      tabs.fitWindow()
       return
     }
     loginErrorLabel.isHidden = true
@@ -346,6 +348,7 @@ final class SettingsWindowController: NSWindowController {
     } catch {
       loginErrorLabel.stringValue = "Couldn't change login item: \(error.localizedDescription)"
       loginErrorLabel.isHidden = false
+      tabs.fitWindow()
       sender.state = LaunchAtLogin.isEnabled ? .on : .off
     }
   }
@@ -362,6 +365,7 @@ final class SettingsWindowController: NSWindowController {
       : "Accessibility access: required for badges and Dock clones"
     // No need to offer System Settings when there's nothing to fix.
     accessButton.superview?.isHidden = granted
+    tabs.fitWindow()
   }
 
   @objc private func openAccessibilitySettings(_: NSButton) {
@@ -449,22 +453,25 @@ private final class GroupBoxView: NSView {
   }
 }
 
-/// Toolbar tabs that resize the window to each tab's content, keeping the
-/// window's top edge in place (like System Settings' panes).
+/// Toolbar tabs in a window of constant size: tall enough for the tallest
+/// tab, so switching tabs never resizes it (shorter tabs top-aligned).
 final class SettingsTabViewController: NSTabViewController {
-  override func tabView(_ tabView: NSTabView, didSelect item: NSTabViewItem?) {
-    super.tabView(tabView, didSelect: item)
-    fitWindow(animated: true)
-  }
-
-  func fitWindow(animated: Bool) {
-    guard let window = view.window,
-          let page = tabView.selectedTabViewItem?.viewController?.view else { return }
-    page.layoutSubtreeIfNeeded()
-    let content = page.fittingSize
-    let frame = window.frameRect(forContentRect: CGRect(origin: .zero, size: content))
+  /// Size the window for the tallest tab. Called again when a tab's content
+  /// changes height (e.g. a permission or error row appears); only grows.
+  func fitWindow() {
+    guard let window = view.window else { return }
+    let pages = tabViewItems.compactMap { $0.viewController?.view }
+    for page in pages { page.layoutSubtreeIfNeeded() }
+    let needed = CGSize(
+      width: pages.map(\.fittingSize.width).max() ?? 0,
+      height: pages.map(\.fittingSize.height).max() ?? 0
+    )
+    let current = window.contentRect(forFrameRect: window.frame).size
+    guard needed.height > current.height || needed.width != current.width else { return }
+    for item in tabViewItems { item.viewController?.preferredContentSize = needed }
+    let frame = window.frameRect(forContentRect: CGRect(origin: .zero, size: needed))
     let old = window.frame
-    let target = CGRect(x: old.minX, y: old.maxY - frame.height, width: frame.width, height: frame.height)
-    window.setFrame(target, display: true, animate: animated && window.isVisible)
+    // Keep the top edge in place.
+    window.setFrame(CGRect(x: old.minX, y: old.maxY - frame.height, width: frame.width, height: frame.height), display: true)
   }
 }
