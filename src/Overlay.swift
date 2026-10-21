@@ -101,16 +101,19 @@ final class OverlayManager {
       return (app, cocoa)
     }
     let side = Self.detectSide(icons: icons.map(\.1), screen: screen.frame)
+    // The real Dock's inner edge on a left Dock: where visibleFrame starts
+    // (nil when auto-hidden, as it then reserves nothing).
+    let dockInnerX = screen.visibleFrame.minX > screen.frame.minX ? screen.visibleFrame.minX : nil
     // Same numbers on the Dock copies on other displays.
-    var targets = icons.map { (app: $0.0, icon: $0.1, side: side) }
+    var targets = icons.map { (app: $0.0, icon: $0.1, side: side, dockInnerX: dockInnerX) }
     for app in apps {
       for copy in DockCopies.shared.icons(of: app.bundleURL, title: app.title) {
-        targets.append((app, copy.frame, DockSide(copy.edge)))
+        targets.append((app, copy.frame, DockSide(copy.edge), copy.dock.maxX))
       }
     }
 
-    for (app, icon, side) in targets {
-      let base = self.badgeOrigin(for: icon, side: side, diameter: diameter, style: style)
+    for (app, icon, side, dockInnerX) in targets {
+      let base = self.badgeOrigin(for: icon, side: side, dockInnerX: dockInnerX, diameter: diameter, style: style)
       let origin = base
       let panel = NSPanel(
         contentRect: CGRect(origin: origin, size: CGSize(width: diameter, height: diameter)),
@@ -145,7 +148,7 @@ final class OverlayManager {
     styleShown = nil
   }
 
-  private func badgeOrigin(for icon: CGRect, side: DockSide, diameter: CGFloat, style: BadgeStyle) -> CGPoint {
+  private func badgeOrigin(for icon: CGRect, side: DockSide, dockInnerX: CGFloat?, diameter: CGFloat, style: BadgeStyle) -> CGPoint {
     switch style {
     case .persistent:
       // A corner of the icon, inset so the badge sits fully on the icon,
@@ -156,8 +159,10 @@ final class OverlayManager {
         // in their middle so the badge lands on the icon's corner.
         let s = min(icon.width, icon.height)
         let square = CGRect(x: icon.midX - s / 2, y: icon.midY - s / 2, width: s, height: s)
-        // Overhang the icon's right edge slightly, like the Dock's own badges.
-        return CGPoint(x: square.maxX - diameter + 2, y: square.minY + cornerInset)
+        // As far right as still fits inside the Dock (its inner edge, less
+        // 1 pt for the border); without it, slightly over the icon's edge.
+        let right = dockInnerX.map { $0 - 1 } ?? square.maxX + 2
+        return CGPoint(x: right - diameter, y: square.minY + cornerInset)
       }
       return CGPoint(x: icon.minX + cornerInset, y: icon.maxY - diameter - cornerInset)
     case .hold:

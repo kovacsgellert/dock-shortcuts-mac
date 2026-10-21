@@ -85,15 +85,15 @@ final class DockCopies {
   /// Where an app's icon sits on each visible copy (Cocoa coordinates),
   /// so shortcut badges can be drawn there too. Matched by bundle path,
   /// like the real Dock's own badges.
-  func icons(of url: URL?, title: String) -> [(frame: CGRect, edge: DockEdge)] {
-    var out: [(frame: CGRect, edge: DockEdge)] = []
+  func icons(of url: URL?, title: String) -> [(frame: CGRect, edge: DockEdge, dock: CGRect)] {
+    var out: [(frame: CGRect, edge: DockEdge, dock: CGRect)] = []
     for panel in panels.values where panel.isRevealed {
       let layout = panel.layout
       for (item, slot) in zip(snapshot.items, layout.itemRects) where item.kind == .app {
         guard url.map({ $0.path == item.url?.path }) ?? (item.title == title) else { continue }
         let slot = slot.offsetBy(dx: layout.frame.minX, dy: layout.frame.minY)
         let icon = CGRect(x: slot.midX - layout.tile / 2, y: slot.midY - layout.tile / 2, width: layout.tile, height: layout.tile)
-        out.append((icon, layout.edge))
+        out.append((icon, layout.edge, layout.frame))
       }
     }
     return out
