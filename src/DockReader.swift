@@ -55,10 +55,21 @@ enum DockReader {
          let v = frameV, CFGetTypeID(v) == AXValueGetTypeID() {
         let axv = v as! AXValue
         var r = CGRect.zero
-        if AXValueGetValue(axv, .cgRect, &r) { frame = r }
+        if AXValueGetValue(axv, .cgRect, &r) { frame = unmirrored(r) }
       }
       out.append(DockApp(index: out.count + 1, title: title, bundleURL: url, frame: frame))
     }
     return out
+  }
+
+  /// macOS 27 reports the items of a left-side Dock mirrored around x = 0
+  /// (x = -(real maxX)), i.e. off every screen. Flip such frames back when
+  /// the mirror lands on a screen. Not for an auto-hidden Dock, whose items
+  /// really are off screen while hidden.
+  private static func unmirrored(_ frame: CGRect) -> CGRect {
+    let screens = NSScreen.screens.map { Coords.flip($0.frame) }
+    guard !screens.contains(where: { $0.intersects(frame) }), !DockPrefs.read().autohide else { return frame }
+    let mirror = CGRect(x: -frame.maxX, y: frame.minY, width: frame.width, height: frame.height)
+    return screens.contains(where: { $0.intersects(mirror) }) ? mirror : frame
   }
 }

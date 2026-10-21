@@ -148,8 +148,16 @@ final class OverlayManager {
   private func badgeOrigin(for icon: CGRect, side: DockSide, diameter: CGFloat, style: BadgeStyle) -> CGPoint {
     switch style {
     case .persistent:
-      // Top-left corner of the icon, inset so the badge sits fully
-      // on the icon, inside the Dock perimeter.
+      // A corner of the icon, inset so the badge sits fully on the icon,
+      // inside the Dock perimeter: lower-right with the Dock on the left,
+      // top-left otherwise.
+      if side == .left {
+        // The Dock's item frames are wider than the icon: use the square
+        // in their middle so the badge lands on the icon's corner.
+        let s = min(icon.width, icon.height)
+        let square = CGRect(x: icon.midX - s / 2, y: icon.midY - s / 2, width: s, height: s)
+        return CGPoint(x: square.maxX - diameter - cornerInset, y: square.minY + cornerInset)
+      }
       return CGPoint(x: icon.minX + cornerInset, y: icon.maxY - diameter - cornerInset)
     case .hold:
       switch side {
