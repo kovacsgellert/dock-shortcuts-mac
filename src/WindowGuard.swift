@@ -6,18 +6,22 @@ import ApplicationServices
 ///
 /// macOS has no API for a second reserved area (see README), so this
 /// watches every app's windows through Accessibility and, after a window is
-/// resized, shrinks it if its Dock-side edge ends up at (or within a tiling
-/// margin of) the screen edge while overlapping a clone. That covers the
+/// resized or moved, shrinks it if its Dock-side edge ends up at (or within a
+/// tiling margin of) the screen edge while overlapping a clone. That covers the
 /// green-button zoom, double-click-title Fill, Sequoia tiling and window
 /// managers, which all size windows to `visibleFrame` (= the whole screen on
-/// displays without the real Dock). Plain moves are left alone, so windows
-/// can still be dragged over a clone, just as over the real Dock.
+/// displays without the real Dock). Window managers often only move a window
+/// (to a same-sized tile, or to another display), so moves count too, except
+/// mouse drags: windows can still be dragged over a clone, just as over the
+/// real Dock.
 final class WindowGuard {
   /// Reserved bands in Cocoa coordinates.
   private var reserved: [(edge: DockEdge, rect: CGRect)] = []
   private var observers: [pid_t: AXObserver] = [:]
   private var pending: [pid_t: DispatchWorkItem] = [:]
-  private var pendingWindows: [pid_t: [AXUIElement]] = [:]
+  /// Windows changed since the last settle, and whether any of their changes
+  /// should be clamped (anything but a mouse drag).
+  private var pendingWindows: [pid_t: [(window: AXUIElement, clamp: Bool)]] = [:]
   /// How far from the screen edge a window edge still counts as "at the edge":
   /// Sequoia's "Tiled windows have margins" leaves a gap of about 8 pt.
   private let edgeTolerance: CGFloat = 16
@@ -54,16 +58,17 @@ final class WindowGuard {
     guard !reserved.isEmpty, observers[pid] == nil, app.activationPolicy == .regular,
           pid != ProcessInfo.processInfo.processIdentifier else { return }
     var observer: AXObserver?
-    let callback: AXObserverCallback = { _, element, _, refcon in
+    let callback: AXObserverCallback = { _, element, notification, refcon in
       guard let refcon else { return }
-      Unmanaged<WindowGuard>.fromOpaque(refcon).takeUnretainedValue().windowChanged(element)
+      Unmanaged<WindowGuard>.fromOpaque(refcon).takeUnretainedValue()
+        .windowChanged(element, moved: notification as String == kAXWindowMovedNotification)
     }
     guard AXObserverCreate(pid, callback, &observer) == .success, let observer else { return }
     let appEl = AXUIElementCreateApplication(pid)
     let refcon = Unmanaged.passUnretained(self).toOpaque()
     var ok = false
     // Registered on the app element, these fire for all of its windows.
-    for name in [kAXWindowResizedNotification, kAXWindowCreatedNotification] {
+    for name in [kAXWindowResizedNotification, kAXWindowMovedNotification, kAXWindowCreatedNotification] {
       ok = AXObserverAddNotification(observer, appEl, name as CFString, refcon) == .success || ok
     }
     guard ok else { return }
@@ -79,18 +84,21 @@ final class WindowGuard {
   }
 
   /// Resizes arrive in bursts while zoom/tiling animate; act once it settles.
-  private func windowChanged(_ window: AXUIElement) {
+  private func windowChanged(_ window: AXUIElement, moved: Bool) {
     var pid: pid_t = 0
     guard AXUIElementGetPid(window, &pid) == .success else { return }
-    if !(pendingWindows[pid] ?? []).contains(where: { CFEqual($0, window) }) {
-      pendingWindows[pid, default: []].append(window)
+    let clamp = !(moved && isMouseDragging())
+    if let i = pendingWindows[pid]?.firstIndex(where: { CFEqual($0.window, window) }) {
+      pendingWindows[pid]![i].clamp = pendingWindows[pid]![i].clamp || clamp
+    } else {
+      pendingWindows[pid, default: []].append((window, clamp))
     }
     pending[pid]?.cancel()
     let work = DispatchWorkItem { [weak self] in
       guard let self else { return }
       let windows = self.pendingWindows.removeValue(forKey: pid) ?? []
       self.pending[pid] = nil
-      for w in windows { self.clamp(w) }
+      for w in windows where w.clamp { self.clamp(w.window) }
     }
     pending[pid] = work
     DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
@@ -136,6 +144,13 @@ final class WindowGuard {
       AX.setSize(window, target.size)
       return
     }
+  }
+
+  /// The last move notifications of a drag can arrive just after the button
+  /// goes up, so a very recent drag event counts too.
+  private func isMouseDragging() -> Bool {
+    NSEvent.pressedMouseButtons & 1 != 0
+      || CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: .leftMouseDragged) < 0.3
   }
 
   private func area(_ r: CGRect) -> CGFloat { r.isNull ? 0 : r.width * r.height }

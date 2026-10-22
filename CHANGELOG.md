@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Keep windows clear of the clones also works for window managers that
+  only move a window (to a same-sized tile, or to another display), such as
+  Vorssaint's quarter shortcuts. Dragging a window with the mouse still
+  leaves it over a clone
+
 ## 2.0.0
 
 DockShortcuts is now **DockUtils**: the number shortcuts plus a new,
