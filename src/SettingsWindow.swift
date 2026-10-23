@@ -295,8 +295,15 @@ final class SettingsWindowController: NSWindowController {
   func show() {
     refreshAll()
     window?.center()
+    // The app is a menu-bar agent (LSUIElement): ordering the window front
+    // while the app is inactive parks it *behind* the frontmost app's
+    // windows — and with no Dock icon there is no way to click it forward
+    // again, so Settings silently "does nothing" until relaunch. Activate
+    // the app first (`ignoringOtherApps` reliably works for an accessory app
+    // and does not give it a Dock icon), then order the window front, so it
+    // lands above every other app's windows.
+    NSApp.activate(ignoringOtherApps: true)
     window?.makeKeyAndOrderFront(nil)
-    NSApp.activate()
   }
 
   @objc func showFromMenu(_: Any?) {

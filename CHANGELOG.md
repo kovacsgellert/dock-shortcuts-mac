@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Settings opens in front of other windows when opened from the menu-bar
+  icon (or after clicking the running app): the app is a menu-bar agent
+  (`LSUIElement`), so ordering the window front while the app was inactive
+  parked it behind the frontmost app's windows, with no Dock icon to bring
+  it forward again. Opening Settings now activates the app first (which
+  keeps it out of the Dock) and then raises the window above every other
+  app
+
 ## 2.0.1
 
 ### Fixed
